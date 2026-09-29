@@ -435,7 +435,7 @@ export function Segmented<T extends string>({
 
 /** Horizontally scrollable table wrapper that never widens the page. */
 export function TableScroll({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0", className)}>{children}</div>;
+  return <div className={cn("max-w-full overflow-x-auto overscroll-x-contain", className)}>{children}</div>;
 }
 
 export const thCls =

@@ -22,7 +22,8 @@ export function NewTripForm() {
   const router = useRouter();
   const canWrite = useCan("trip.write");
   const [tripType, setTripType] = useState<TripType>("one_way");
-  const [legs, setLegs] = useState<Leg[]>(() => [newLeg()]);
+  // Fixed key for the first leg so server and client render the same ids.
+  const [legs, setLegs] = useState<Leg[]>(() => [{ key: 0, origin: "", destination: "", depart: "" }]);
   const [pax, setPax] = useState(4);
   const [wifi, setWifi] = useState(false);
   const [catering, setCatering] = useState(false);
@@ -94,7 +95,7 @@ export function NewTripForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 grid gap-5 lg:grid-cols-[1fr_320px]">
+    <form onSubmit={onSubmit} className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-5">
         <Panel
           title="Itinerary"
@@ -128,7 +129,7 @@ export function NewTripForm() {
                     </Btn>
                   )}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1.1fr]">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_1fr_1.1fr]">
                   <Field label="From" htmlFor={`o-${l.key}`}>
                     <AirportInput
                       id={`o-${l.key}`}

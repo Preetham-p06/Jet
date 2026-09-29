@@ -26,7 +26,7 @@ export function QuotesTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <IngestPanel
           onStarted={() => setLive(true)}
           onSettled={() => {

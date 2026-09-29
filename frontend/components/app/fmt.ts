@@ -24,12 +24,14 @@ export function fmtDate(iso: string | null | undefined, fallback = "—"): strin
 }
 
 /**
- * A leg's local departure. The API sends `depart_local` as a wall-clock time
- * in `depart_tz`, so format it in that zone (falling back to the string).
+ * A leg's local departure. `depart_local` is a wall-clock time at the origin
+ * (no offset), so it is formatted as-is, never shifted into the viewer's zone.
+ * If the API ever sends an offset, it is formatted in `tz` instead.
  */
 export function fmtLocal(iso: string | null | undefined, tz?: string | null, withWeekday = false): string {
   if (!iso) return "—";
-  const d = new Date(iso);
+  const hasOffset = /(Z|[+-]\d{2}:?\d{2})$/.test(iso);
+  const d = new Date(hasOffset ? iso : `${iso}Z`);
   if (!valid(d)) return iso;
   const opts: Intl.DateTimeFormatOptions = {
     month: "short",
@@ -39,9 +41,9 @@ export function fmtLocal(iso: string | null | undefined, tz?: string | null, wit
     ...(withWeekday ? { weekday: "short" } : {}),
   };
   try {
-    return new Intl.DateTimeFormat("en-US", { ...opts, timeZone: tz ?? undefined }).format(d);
+    return new Intl.DateTimeFormat("en-US", { ...opts, timeZone: hasOffset ? (tz ?? undefined) : "UTC" }).format(d);
   } catch {
-    return new Intl.DateTimeFormat("en-US", opts).format(d);
+    return new Intl.DateTimeFormat("en-US", { ...opts, timeZone: "UTC" }).format(d);
   }
 }
 
@@ -80,8 +82,18 @@ export function fmtPct(n: number | null | undefined, digits = 0): string {
 }
 
 /** Enum value → "Super midsize". */
+const SPECIAL: Record<string, string> = {
+  pdf_upload: "PDF upload",
+  pdf: "PDF",
+  sms: "SMS",
+  fet: "FET",
+  whatsapp: "WhatsApp",
+  fx_converted: "FX converted",
+};
+
 export function humanize(v: string | null | undefined): string {
   if (!v) return "—";
+  if (SPECIAL[v]) return SPECIAL[v];
   const s = v.replace(/[_-]+/g, " ").trim();
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

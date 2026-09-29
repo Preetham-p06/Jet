@@ -54,7 +54,7 @@ export function OverviewTab() {
   ];
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-5">
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {stats.map((s) => {
@@ -172,7 +172,7 @@ export function OverviewTab() {
         </Panel>
         {trip && (
           <Panel title="Client & preferences">
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[13px]">
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
               <dt className="text-fg-dim">Client</dt>
               <dd className="text-fg">{trip.client_name ?? "—"}</dd>
               <dt className="text-fg-dim">Trip type</dt>

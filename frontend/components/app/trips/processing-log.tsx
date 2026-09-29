@@ -107,7 +107,7 @@ export function LiveProcessingLog({
             {events.map((e) => (
               <li key={e.id} className="flex gap-2.5">
                 <span className="shrink-0 text-fg-dim">{tf.format(new Date(e.created_at))}</span>
-                <span className="w-[70px] shrink-0 uppercase tracking-[0.08em] text-fg-dim/80">{e.step}</span>
+                <span className="hidden w-[104px] shrink-0 uppercase tracking-[0.08em] text-fg-dim/80 sm:inline">{e.step}</span>
                 <span
                   className={cn(
                     "min-w-0 break-words text-fg-muted",
