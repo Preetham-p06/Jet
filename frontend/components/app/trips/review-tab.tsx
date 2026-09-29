@@ -8,7 +8,7 @@ import { ApiError } from "@/lib/api/errors";
 import { ConfidenceBadge } from "@/components/ui/confidence-badge";
 import { cn } from "@/lib/utils";
 import { useCan } from "../me-provider";
-import { FieldEditor, Snippet, displayValue, highlightNeedle } from "../field-value";
+import { FieldEditor, Snippet, displayValue, fieldEditorInlineFields, highlightNeedle } from "../field-value";
 import { FlagResolveDialog } from "../flag-resolve-dialog";
 import { formatCents, humanize } from "../fmt";
 import { SeverityIcon, SeverityPill } from "../status";
@@ -260,7 +260,7 @@ function FieldItem({
       {f.snippet && <Snippet text={f.snippet} needles={highlightNeedle(f, f.current_value)} />}
 
       {editing ? (
-        <FieldEditor field={f} pending={edit.pending} onCancel={onCancel} onSubmit={(v, n) => run(edit.run(v, n))} />
+        <FieldEditor field={f} pending={edit.pending} error={edit.error} onCancel={onCancel} onSubmit={(v, n) => run(edit.run(v, n))} />
       ) : (
         <div className="flex flex-wrap items-center gap-2" title={canReview ? undefined : BROKER_ONLY}>
           <Btn
@@ -291,7 +291,7 @@ function FieldItem({
       )}
       {err && (
         <div className="flex flex-wrap items-center gap-2">
-          <InlineError error={err} />
+          <InlineError error={err} shownInline={editing && err === edit.error ? fieldEditorInlineFields(f) : []} />
           {conflict && (
             <Btn size="xs" onClick={onConflict}>
               Reload latest

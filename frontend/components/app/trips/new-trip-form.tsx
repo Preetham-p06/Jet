@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Plus, Trash2 } from "lucide-react";
 import { endpoints, type AircraftCategory, type TripCreate } from "@/lib/api/endpoints";
+import { fieldErrorOf } from "@/lib/api/errors";
 import { useMutation } from "@/lib/api/hooks";
 import { GlowButton } from "@/components/ui/glow-button";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,22 @@ import { Btn, Field, InlineError, Panel, Segmented, inputCls, textareaCls } from
 
 type TripType = "one_way" | "round_trip" | "multi_leg";
 type Leg = { key: number; origin: string; destination: string; depart: string };
+
+/** API field paths this form shows next to their inputs. */
+const TRIP_INLINE_FIELDS = (legCount: number) => [
+  "client_name",
+  "client_email",
+  "reference",
+  "notes",
+  "pax",
+  "preferences.max_budget_cents",
+  ...Array.from({ length: legCount }, (_, i) => [
+    `legs.${i}.origin_icao`,
+    `legs.${i}.destination_icao`,
+    `legs.${i}.depart_local`,
+    `legs.${i}.depart_tz`,
+  ]).flat(),
+];
 
 let legSeq = 1;
 const newLeg = (origin = "", destination = ""): Leg => ({ key: legSeq++, origin, destination, depart: "" });
@@ -30,6 +47,7 @@ export function NewTripForm() {
   const [cats, setCats] = useState<AircraftCategory[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const create = useMutation(endpoints.createTrip);
+  const fe = (name: string) => fieldErrorOf(create.error, name);
 
   function setType(t: TripType) {
     setTripType(t);
@@ -130,7 +148,7 @@ export function NewTripForm() {
                   )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_1fr_1.1fr]">
-                  <Field label="From" htmlFor={`o-${l.key}`}>
+                  <Field label="From" htmlFor={`o-${l.key}`} error={fe(`legs.${i}.origin_icao`)}>
                     <AirportInput
                       id={`o-${l.key}`}
                       label={`Leg ${i + 1} origin`}
@@ -139,7 +157,7 @@ export function NewTripForm() {
                       required
                     />
                   </Field>
-                  <Field label="To" htmlFor={`d-${l.key}`}>
+                  <Field label="To" htmlFor={`d-${l.key}`} error={fe(`legs.${i}.destination_icao`)}>
                     <AirportInput
                       id={`d-${l.key}`}
                       label={`Leg ${i + 1} destination`}
@@ -149,7 +167,7 @@ export function NewTripForm() {
                       required
                     />
                   </Field>
-                  <Field label="Departs (local)" htmlFor={`t-${l.key}`}>
+                  <Field label="Departs (local)" htmlFor={`t-${l.key}`} error={fe(`legs.${i}.depart_local`) ?? fe(`legs.${i}.depart_tz`)}>
                     <input
                       id={`t-${l.key}`}
                       type="datetime-local"
@@ -175,16 +193,16 @@ export function NewTripForm() {
 
         <Panel title="Client">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Client name" htmlFor="client_name">
+            <Field label="Client name" htmlFor="client_name" error={fe("client_name")}>
               <input id="client_name" name="client_name" className={inputCls} placeholder="Private client" />
             </Field>
-            <Field label="Client email" htmlFor="client_email" hint="Never shared with operators.">
+            <Field label="Client email" htmlFor="client_email" hint="Never shared with operators." error={fe("client_email")}>
               <input id="client_email" name="client_email" type="email" className={inputCls} />
             </Field>
-            <Field label="Reference" htmlFor="reference" hint="Leave blank to auto-number.">
+            <Field label="Reference" htmlFor="reference" hint="Leave blank to auto-number." error={fe("reference")}>
               <input id="reference" name="reference" className={cn(inputCls, "font-mono")} placeholder="JS185" />
             </Field>
-            <Field label="Notes" htmlFor="notes" className="sm:col-span-2">
+            <Field label="Notes" htmlFor="notes" className="sm:col-span-2" error={fe("notes")}>
               <textarea id="notes" name="notes" className={textareaCls} placeholder="Pets, luggage, ground transport…" />
             </Field>
           </div>
@@ -194,7 +212,7 @@ export function NewTripForm() {
       <div className="flex min-w-0 flex-col gap-5">
         <Panel title="Passengers & preferences" sub="Feeds the fit score's aircraft and preference signals.">
           <div className="flex flex-col gap-5">
-            <Field label="Passengers" htmlFor="pax">
+            <Field label="Passengers" htmlFor="pax" error={fe("pax")}>
               <div className="flex items-center gap-2">
                 <Btn aria-label="Fewer passengers" onClick={() => setPax((p) => Math.max(1, p - 1))}>
                   −
@@ -243,7 +261,7 @@ export function NewTripForm() {
               </div>
             </fieldset>
 
-            <Field label="Max budget (USD)" htmlFor="budget" hint="Optional. Quotes above it lose preference points.">
+            <Field label="Max budget (USD)" htmlFor="budget" hint="Optional. Quotes above it lose preference points." error={fe("preferences.max_budget_cents")}>
               <input id="budget" name="budget" inputMode="decimal" className={cn(inputCls, "tabular")} placeholder="50,000" />
             </Field>
           </div>
@@ -255,7 +273,7 @@ export function NewTripForm() {
               {localError}
             </p>
           )}
-          <InlineError error={create.error} />
+          <InlineError error={create.error} shownInline={TRIP_INLINE_FIELDS(legs.length)} />
           <GlowButton
             type="submit"
             size="lg"

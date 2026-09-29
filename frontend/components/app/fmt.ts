@@ -1,7 +1,7 @@
 /** Dashboard-only formatters layered on `lib/format.ts`. */
-import { formatCents } from "@/lib/format";
+import { formatCents, majorToMinor } from "@/lib/format";
 
-export { CATEGORY_LABEL, categoryLabel, formatCents, formatDuration } from "@/lib/format";
+export { CATEGORY_LABEL, categoryLabel, formatCents, formatDuration, formatMinor, minorExponent, minorToMajor } from "@/lib/format";
 
 const dtf = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const df = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -109,12 +109,25 @@ export function toLocalInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** Parse "$1,234.50" / "1234.5" / "41.8k" → cents; null if unparseable. */
-export function parseMoneyToCents(input: string): number | null {
-  const s = input.trim().toLowerCase().replace(/[$,\s]/g, "").replace(/usd/g, "");
+/**
+ * Parse "1,234.50" / "1234.5" / "41.8k" (with an optional currency symbol or
+ * code) → integer minor units of `currency`; null if unparseable.
+ */
+export function parseMoneyToMinor(input: string, currency: string): number | null {
+  const code = currency.toLowerCase().replace(/[^a-z]/g, "");
+  const s = input
+    .trim()
+    .toLowerCase()
+    .replace(/[$€£¥₩,\s]/g, "")
+    .replace(code ? new RegExp(`^${code}|${code}$`, "g") : /^$/, "");
   if (!s) return null;
   const k = s.endsWith("k");
   const n = Number(k ? s.slice(0, -1) : s);
   if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n * (k ? 1000 : 1) * 100);
+  return majorToMinor(n * (k ? 1000 : 1), currency);
+}
+
+/** Parse a USD amount → integer USD cents (for `*_cents` inputs). */
+export function parseMoneyToCents(input: string): number | null {
+  return parseMoneyToMinor(input, "USD");
 }

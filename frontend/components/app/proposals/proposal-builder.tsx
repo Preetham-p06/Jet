@@ -14,6 +14,7 @@ import {
   Send,
   Undo2,
 } from "lucide-react";
+import { fieldErrorOf } from "@/lib/api/errors";
 import {
   endpoints,
   type Proposal,
@@ -32,6 +33,7 @@ import {
   Btn,
   ErrorState,
   Field,
+  FieldMessage,
   InlineError,
   LoadingBlock,
   Panel,
@@ -137,6 +139,9 @@ export function ProposalBuilder({
   const optionsSorted = [...p.options].sort((a, b) => a.sort_order - b.sort_order);
   const selectedOption = choice || p.accepted_option_id || optionsSorted.find((o) => o.is_recommended)?.id || optionsSorted[0]?.id || "";
   const err = save.error ?? action.error ?? choose.error;
+  const fe = (name: string) => fieldErrorOf(err, name);
+  // Per-quote eligibility failures come back keyed by quote id.
+  const inlineFields = ["markup_pct", "title", "client_name", "message", "options", ...draft.quoteIds];
 
   async function doAction(a: Parameters<typeof action.run>[0]) {
     const res = await action.run(a);
@@ -288,7 +293,7 @@ export function ProposalBuilder({
           )}
         </div>
       )}
-      {err && <InlineError error={err} />}
+      {err && <InlineError error={err} shownInline={inlineFields} />}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
         {/* Left: options, markup, text */}
@@ -300,13 +305,16 @@ export function ProposalBuilder({
               selected={draft.quoteIds}
               editable={editable}
               onChange={(ids) => setDraft({ ...draft, quoteIds: ids })}
+              errorFor={fe}
             />
+            <FieldMessage className="mt-2">{fe("options")}</FieldMessage>
           </Panel>
           <Panel title="Pricing & message">
             <div className="flex flex-col gap-4">
               <Field
                 label="Markup %"
                 htmlFor="markup"
+                error={fe("markup_pct")}
                 hint="Applied to each option's known true cost. Only brokers see it."
               >
                 <div className="flex items-center gap-3">
@@ -331,13 +339,13 @@ export function ProposalBuilder({
                   />
                 </div>
               </Field>
-              <Field label="Title" htmlFor="p-title">
+              <Field label="Title" htmlFor="p-title" error={fe("title")}>
                 <input id="p-title" value={draft.title} disabled={!editable} onChange={(e) => setDraft({ ...draft, title: e.target.value })} className={inputCls} />
               </Field>
-              <Field label="Prepared for" htmlFor="p-client">
+              <Field label="Prepared for" htmlFor="p-client" error={fe("client_name")}>
                 <input id="p-client" value={draft.clientName} disabled={!editable} onChange={(e) => setDraft({ ...draft, clientName: e.target.value })} className={inputCls} />
               </Field>
-              <Field label="Message to client" htmlFor="p-msg">
+              <Field label="Message to client" htmlFor="p-msg" error={fe("message")}>
                 <textarea id="p-msg" value={draft.message} disabled={!editable} onChange={(e) => setDraft({ ...draft, message: e.target.value })} className={textareaCls} />
               </Field>
             </div>
@@ -400,12 +408,15 @@ function OptionPicker({
   selected,
   editable,
   onChange,
+  errorFor,
 }: {
   quotes: QuoteSummary[] | undefined;
   loading: boolean;
   selected: string[];
   editable: boolean;
   onChange: (ids: string[]) => void;
+  /** The API's message for a quote id (e.g. why it can't go into a proposal). */
+  errorFor: (quoteId: string) => string | null;
 }) {
   if (loading || !quotes) return <LoadingBlock rows={3} />;
   const byId = new Map(quotes.map((q) => [q.id, q]));
@@ -474,6 +485,7 @@ function OptionPicker({
                 </span>
               )}
             </div>
+            <FieldMessage className="mt-1.5 pl-7 text-[11.5px]">{errorFor(q.id)}</FieldMessage>
             {blocked && q.eligibility_reasons.length > 0 && (
               <ul className="mt-1.5 pl-7 text-[11.5px] text-amber">
                 {q.eligibility_reasons.map((r) => (

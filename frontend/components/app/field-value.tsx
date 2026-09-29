@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import type { AmountStatus, FeeValue, Field, MoneyValue } from "@/lib/api/endpoints";
+import { fieldErrorOf } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
-import { categoryLabel, formatCents, formatDuration, fmtDateTime, humanize, parseMoneyToCents } from "./fmt";
-import { inputCls, selectCls } from "./ui";
+import { categoryLabel, formatCents, formatDuration, formatMinor, fmtDateTime, humanize, minorToMajor, parseMoneyToMinor } from "./fmt";
+import { FieldMessage, inputCls, selectCls } from "./ui";
 
 type Value = Field["current_value"];
 
@@ -17,7 +18,7 @@ function isFee(v: unknown): v is FeeValue {
 
 export function money(v: MoneyValue): string {
   if (v.currency === "USD") return formatCents(v.amount_minor);
-  return `${(v.amount_minor / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })} ${v.currency}`;
+  return formatMinor(v.amount_minor, v.currency);
 }
 
 /** Human text for any field value. */
@@ -52,17 +53,17 @@ export function displayValue(field: Pick<Field, "value_type" | "key">, v: Value)
 /** The substring of `snippet` to highlight for this value. */
 export function highlightNeedle(field: Pick<Field, "value_type" | "key">, v: Value): string[] {
   const out: string[] = [];
-  const addAmount = (minor: number) => {
-    const whole = Math.round(minor / 100);
+  const addAmount = (minor: number, currency: string) => {
+    const whole = Math.round(minorToMajor(minor, currency));
     out.push(whole.toLocaleString("en-US"), String(whole));
     if (whole >= 1000 && whole % 100 === 0) out.push(`${(whole / 1000).toLocaleString("en-US")}k`);
   };
   if (isFee(v)) {
-    if (v.amount) addAmount(v.amount.amount_minor);
+    if (v.amount) addAmount(v.amount.amount_minor, v.amount.currency);
     if (v.status === "included") out.push("included", "Included", "all in");
     if (v.status === "estimated") out.push("est.", "may be");
     out.push(v.label);
-  } else if (isMoney(v)) addAmount(v.amount_minor);
+  } else if (isMoney(v)) addAmount(v.amount_minor, v.currency);
   else if (typeof v === "number") out.push(String(v));
   else if (typeof v === "string") out.push(v);
   else if (typeof v === "boolean") out.push(v ? "Yes" : "No");
@@ -105,6 +106,11 @@ export function Snippet({ text, needles, className }: { text: string; needles: s
 
 const FEE_STATUSES: AmountStatus[] = ["stated", "included", "estimated", "not_stated", "waived", "not_applicable"];
 
+/** API field paths `FieldEditor` shows next to its inputs, for `InlineError shownInline`. */
+export function fieldEditorInlineFields(field: Pick<Field, "key">): string[] {
+  return ["value", "note", field.key];
+}
+
 /**
  * Typed inline editor. Calls `onSubmit` with the JSON value the API expects
  * for this field's `value_type` (money → MoneyValue, fee → FeeValue).
@@ -114,18 +120,23 @@ export function FieldEditor({
   onSubmit,
   onCancel,
   pending,
+  error,
 }: {
   field: Field;
   onSubmit: (value: unknown, note: string | null) => void;
   onCancel: () => void;
   pending?: boolean;
+  /** The last failed save; its per-field messages show under the inputs. */
+  error?: unknown;
 }) {
+  const valueError = fieldErrorOf(error, "value") ?? fieldErrorOf(error, field.key);
+  const noteError = fieldErrorOf(error, "note");
   const v = field.current_value;
   const fee = isFee(v) ? v : null;
   const moneyV = isMoney(v) ? v : fee?.amount ?? null;
   const initialText =
     moneyV != null
-      ? String(moneyV.amount_minor / 100)
+      ? String(minorToMajor(moneyV.amount_minor, moneyV.currency))
       : typeof v === "string" || typeof v === "number"
         ? String(v)
         : "";
@@ -144,13 +155,13 @@ export function FieldEditor({
     if (field.value_type === "fee" && fee) {
       let amount: MoneyValue | null = null;
       if (status === "stated" || status === "estimated") {
-        const c = parseMoneyToCents(text);
+        const c = parseMoneyToMinor(text, currency);
         if (c == null) return setErr("Enter an amount.");
         amount = { amount_minor: c, currency };
       }
       value = { ...fee, status, amount, hedged: false };
     } else if (field.value_type === "money") {
-      const c = parseMoneyToCents(text);
+      const c = parseMoneyToMinor(text, currency);
       if (c == null) return setErr("Enter an amount.");
       value = { amount_minor: c, currency };
     } else if (field.value_type === "bool") {
@@ -231,7 +242,8 @@ export function FieldEditor({
         placeholder="Note (optional): e.g. confirmed by phone with Dan"
         className={cn(inputCls, "h-9 text-[12.5px]")}
       />
-      {err && <p className="text-xs text-amber">{err}</p>}
+      <FieldMessage>{noteError}</FieldMessage>
+      <FieldMessage>{err ?? valueError}</FieldMessage>
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="h-8 rounded-full px-3 text-[12.5px] text-fg-muted hover:text-fg">
           Cancel

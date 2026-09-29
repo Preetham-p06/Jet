@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, KeyRound, UserPlus, X } from "lucide-react";
 import { endpoints, type InviteCreated, type Role, type Workspace } from "@/lib/api/endpoints";
+import { fieldErrorOf } from "@/lib/api/errors";
 import { useApi, useMutation } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { useCan, useMe } from "../me-provider";
@@ -69,12 +70,13 @@ function WorkspaceForm({ ws, editable, onSaved }: { ws: Workspace; editable: boo
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
-      <Field label="Workspace name" htmlFor="ws-name">
+      <Field label="Workspace name" htmlFor="ws-name" error={fieldErrorOf(save.error, "name")}>
         <input id="ws-name" value={name} disabled={!editable} onChange={(e) => setName(e.target.value)} className={inputCls} required />
       </Field>
       <Field
         label={`Review threshold · ${threshold}%`}
         htmlFor="ws-threshold"
+        error={fieldErrorOf(save.error, "review_threshold")}
         hint="Fields extracted below this confidence go to the review queue and must be locked before a proposal."
       >
         <div className="flex items-center gap-3">
@@ -93,7 +95,7 @@ function WorkspaceForm({ ws, editable, onSaved }: { ws: Workspace; editable: boo
           <span className="font-mono text-[11px] text-fg-dim">100</span>
         </div>
       </Field>
-      <Field label="Default markup %" htmlFor="ws-markup" hint="0–50. Pre-fills new proposals; brokers can change it per proposal.">
+      <Field label="Default markup %" htmlFor="ws-markup" hint="0–50. Pre-fills new proposals; brokers can change it per proposal." error={fieldErrorOf(save.error, "default_markup_pct")}>
         <input
           id="ws-markup"
           inputMode="decimal"
@@ -103,7 +105,7 @@ function WorkspaceForm({ ws, editable, onSaved }: { ws: Workspace; editable: boo
           className={cn(inputCls, "tabular w-28 font-mono", !markupOk && "border-amber/50")}
         />
       </Field>
-      <InlineError error={save.error} />
+      <InlineError error={save.error} shownInline={["name", "review_threshold", "default_markup_pct"]} />
       {editable && (
         <div className="flex items-center justify-end gap-3">
           {saved && !save.pending && <span className="inline-flex items-center gap-1 text-xs text-green"><Check className="h-3.5 w-3.5" aria-hidden="true" /> Saved</span>}
@@ -141,17 +143,17 @@ function PasswordPanel() {
   return (
     <Panel title="Change password" sub="Signs out your other sessions.">
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <Field label="Current password" htmlFor="pw-cur">
+        <Field label="Current password" htmlFor="pw-cur" error={fieldErrorOf(change.error, "current_password")}>
           <input id="pw-cur" type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} className={inputCls} />
         </Field>
-        <Field label="New password" htmlFor="pw-new">
+        <Field label="New password" htmlFor="pw-new" error={fieldErrorOf(change.error, "new_password")}>
           <input id="pw-new" type="password" autoComplete="new-password" required value={next} onChange={(e) => setNext(e.target.value)} className={inputCls} />
         </Field>
         <Field label="Confirm new password" htmlFor="pw-confirm">
           <input id="pw-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputCls} />
         </Field>
         {local && <p role="alert" className="text-xs text-amber">{local}</p>}
-        <InlineError error={change.error} />
+        <InlineError error={change.error} shownInline={["current_password", "new_password"]} />
         <div className="flex items-center justify-end gap-3">
           {done && <span className="inline-flex items-center gap-1 text-xs text-green"><Check className="h-3.5 w-3.5" aria-hidden="true" /> Password changed</span>}
           <Btn type="submit" pending={change.pending}>
@@ -261,10 +263,10 @@ function InvitesPanel() {
   return (
     <Panel title="Invites" sub="No email is sent. Copy the link and share it yourself; it's shown once and expires in 7 days." className="lg:col-span-2">
       <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <Field label="Email" htmlFor="inv-email" className="flex-1">
+        <Field label="Email" htmlFor="inv-email" className="flex-1" error={fieldErrorOf(create.error, "email")}>
           <input id="inv-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="colleague@brokerage.com" />
         </Field>
-        <Field label="Role" htmlFor="inv-role">
+        <Field label="Role" htmlFor="inv-role" error={fieldErrorOf(create.error, "role")}>
           <select id="inv-role" value={role} onChange={(e) => setRole(e.target.value as Role)} className={cn(selectCls, "sm:w-40")}>
             {ROLES.map((r) => (
               <option key={r} value={r}>{humanize(r)}</option>
@@ -275,7 +277,7 @@ function InvitesPanel() {
           <UserPlus className="h-4 w-4" aria-hidden="true" /> Create invite link
         </Btn>
       </form>
-      <InlineError error={create.error} className="mt-2" />
+      <InlineError error={create.error} shownInline={["email", "role"]} className="mt-2" />
 
       {created && link && (
         <div role="status" className="mt-4 flex flex-col gap-2 rounded-xl border border-cyan/25 bg-cyan/[0.04] p-3 sm:flex-row sm:items-center">

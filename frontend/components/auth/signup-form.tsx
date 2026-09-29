@@ -3,19 +3,24 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { api } from "@/lib/api/client";
+import { ApiError, api } from "@/lib/api/client";
+import { fieldLabel } from "@/lib/api/errors";
 import type { Me } from "@/lib/api/types";
 import { GlowButton } from "@/components/ui/glow-button";
 import { FormField } from "./form-field";
 import { FormError } from "./form-error";
 import { authErrorMessage } from "./auth-errors";
 
-const MIN_PASSWORD = 8;
+/** Mirrors `MIN_PASSWORD_LENGTH` in `backend/app/security/passwords.py`. */
+const MIN_PASSWORD = 10;
+const FIELDS = ["workspace_name", "full_name", "email", "password"] as const;
+type FieldName = (typeof FIELDS)[number];
 
 export function SignupForm({ next }: { next: string | null }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,12 +37,22 @@ export function SignupForm({ next }: { next: string | null }) {
     }
     setPending(true);
     setError(null);
+    setFieldErrors({});
     try {
       await api<Me>("/auth/signup", { method: "POST", json: body, redirectOn401: false });
       router.replace(next ?? "/trips");
       router.refresh();
     } catch (err) {
-      setError(authErrorMessage(err, "signup"));
+      let message = authErrorMessage(err, "signup");
+      if (err instanceof ApiError) {
+        const inline: Partial<Record<FieldName, string>> = {};
+        for (const f of FIELDS) inline[f] = err.fieldError(f) ?? undefined;
+        setFieldErrors(inline);
+        // Anything the form has no input for goes in the banner.
+        const rest = Object.entries(err.fields).filter(([k]) => !FIELDS.some((f) => k === f || k.startsWith(`${f}.`)));
+        if (rest.length) message += ` ${rest.map(([k, v]) => (k ? `${fieldLabel(k)}: ${v}` : v)).join("; ")}`;
+      }
+      setError(message);
       setPending(false);
     }
   }
@@ -50,6 +65,7 @@ export function SignupForm({ next }: { next: string | null }) {
         name="workspace_name"
         autoComplete="organization"
         placeholder="Meridian Air Partners"
+        error={fieldErrors.workspace_name}
         required
         autoFocus
         disabled={pending}
@@ -59,6 +75,7 @@ export function SignupForm({ next }: { next: string | null }) {
         name="full_name"
         autoComplete="name"
         placeholder="Alex Morgan"
+        error={fieldErrors.full_name}
         required
         disabled={pending}
       />
@@ -68,6 +85,7 @@ export function SignupForm({ next }: { next: string | null }) {
         type="email"
         autoComplete="email"
         placeholder="you@brokerage.com"
+        error={fieldErrors.email}
         required
         disabled={pending}
       />
@@ -78,6 +96,7 @@ export function SignupForm({ next }: { next: string | null }) {
         autoComplete="new-password"
         minLength={MIN_PASSWORD}
         hint={`At least ${MIN_PASSWORD} characters.`}
+        error={fieldErrors.password}
         required
         disabled={pending}
       />

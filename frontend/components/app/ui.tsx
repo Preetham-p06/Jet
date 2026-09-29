@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { AlertTriangle, Construction, Inbox, Loader2, RefreshCw, X } from "lucide-react";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, fieldLabel } from "@/lib/api/errors";
 import { errorMessage } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 
@@ -22,12 +22,15 @@ export const labelCls = "text-[12.5px] font-medium text-fg-muted";
 export function Field({
   label,
   hint,
+  error,
   htmlFor,
   children,
   className,
 }: {
   label: string;
   hint?: ReactNode;
+  /** A field-level message, e.g. from `fieldErrorOf(mutation.error, "email")`. */
+  error?: string | null;
   htmlFor?: string;
   children: ReactNode;
   className?: string;
@@ -38,9 +41,15 @@ export function Field({
         {label}
       </label>
       {children}
-      {hint && <p className="text-xs text-fg-dim">{hint}</p>}
+      {error ? <FieldMessage>{error}</FieldMessage> : hint && <p className="text-xs text-fg-dim">{hint}</p>}
     </div>
   );
+}
+
+/** A field-level error message under an input. */
+export function FieldMessage({ children, className }: { children: ReactNode; className?: string }) {
+  if (!children) return null;
+  return <p className={cn("text-xs text-amber", className)}>{children}</p>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -243,13 +252,44 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
   );
 }
 
-export function InlineError({ error, className }: { error: unknown; className?: string }) {
+/**
+ * A failed request's message, plus any per-field messages from the API.
+ * Pass `shownInline` with the field names the form already shows next to its
+ * inputs (matched like `ApiError.fieldError`) so they are not repeated here.
+ */
+export function InlineError({
+  error,
+  className,
+  shownInline = [],
+}: {
+  error: unknown;
+  className?: string;
+  shownInline?: readonly string[];
+}) {
   if (!error) return null;
+  const rest =
+    error instanceof ApiError
+      ? Object.entries(error.fields).filter(
+          ([k]) => !shownInline.some((n) => k === n || k.startsWith(`${n}.`)),
+        )
+      : [];
   return (
-    <p role="alert" className={cn("flex items-start gap-1.5 text-xs text-amber", className)}>
+    <div role="alert" className={cn("flex items-start gap-1.5 text-xs text-amber", className)}>
       <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      {errorMessage(error)}
-    </p>
+      <div className="min-w-0">
+        <p>{errorMessage(error)}</p>
+        {rest.length > 0 && (
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {rest.map(([k, v]) => (
+              <li key={k}>
+                {k && <span className="text-fg-muted">{fieldLabel(k)}: </span>}
+                {v}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -10,6 +10,24 @@ import { Btn, ErrorState, Field, LoadingBlock, Panel, inputCls, selectCls } from
 
 const PAGE = 50;
 
+/**
+ * `entity_type` values the backend writes: `audit.record` derives them from the
+ * ORM table name minus a trailing "s" (`quote_fields` → `quote_field`).
+ */
+const AUDIT_ENTITY_TYPES = [
+  "trip",
+  "trip_operator",
+  "quote",
+  "quote_field",
+  "flag",
+  "proposal",
+  "source_document",
+  "operator",
+  "user",
+  "invite",
+  "workspace",
+] as const;
+
 export function AuditView() {
   const isAdmin = useCan("workspace.admin");
   const [tripId, setTripId] = useState("");
@@ -50,7 +68,7 @@ export function AuditView() {
         <Field label="Entity" htmlFor="au-entity">
           <select id="au-entity" value={entity} onChange={(e) => { setEntity(e.target.value); reset(); }} className={selectCls}>
             <option value="">Any</option>
-            {["trip", "quote", "field", "flag", "proposal", "source_document", "operator", "user", "workspace", "invite"].map((x) => (
+            {AUDIT_ENTITY_TYPES.map((x) => (
               <option key={x} value={x}>{x}</option>
             ))}
           </select>

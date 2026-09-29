@@ -9,9 +9,9 @@ import { ApiError } from "@/lib/api/errors";
 import { ConfidenceBadge } from "@/components/ui/confidence-badge";
 import { cn } from "@/lib/utils";
 import { useCan } from "../me-provider";
-import { FieldEditor, Snippet, displayValue, highlightNeedle } from "../field-value";
+import { FieldEditor, Snippet, displayValue, fieldEditorInlineFields, highlightNeedle } from "../field-value";
 import { FlagResolveDialog } from "../flag-resolve-dialog";
-import { categoryLabel, fmtDateTime, fmtLocal, formatCents, formatDuration, humanize } from "../fmt";
+import { categoryLabel, fmtDateTime, fmtLocal, formatCents, formatDuration, formatMinor, humanize } from "../fmt";
 import { SeverityIcon, SeverityPill } from "../status";
 import { Btn, EmptyState, ErrorState, InlineError, LoadingBlock, Panel, Pill, RecommendedTag, TableScroll, tdCls, thCls } from "../ui";
 import { TrueCostCell } from "../trips/comparison";
@@ -261,7 +261,7 @@ function FeeLinesPanel({ q }: { q: QuoteDetail }) {
                           : "—"}
                     {l.original_currency && l.original_currency !== "USD" && l.original_amount_minor != null && (
                       <p className="text-[10.5px] text-fg-dim">
-                        {(l.original_amount_minor / 100).toLocaleString("en-US")} {l.original_currency}
+                        {formatMinor(l.original_amount_minor, l.original_currency)}
                       </p>
                     )}
                   </td>
@@ -345,7 +345,7 @@ function FieldRow({ field: f, canReview, onChanged }: { field: FieldT; canReview
       {f.snippet && <Snippet className="mt-2" text={f.snippet} needles={highlightNeedle(f, f.current_value)} />}
       {editing ? (
         <div className="mt-2">
-          <FieldEditor field={f} pending={edit.pending} onCancel={() => setEditing(false)} onSubmit={(v, n) => done(edit.run(v, n))} />
+          <FieldEditor field={f} pending={edit.pending} error={edit.error} onCancel={() => setEditing(false)} onSubmit={(v, n) => done(edit.run(v, n))} />
         </div>
       ) : (
         <div className="mt-2 flex flex-wrap gap-1.5" title={canReview ? undefined : "Broker review required"}>
@@ -367,7 +367,7 @@ function FieldRow({ field: f, canReview, onChanged }: { field: FieldT; canReview
           </Btn>
         </div>
       )}
-      <InlineError error={err} className="mt-1.5" />
+      <InlineError error={err} shownInline={editing && err === edit.error ? fieldEditorInlineFields(f) : []} className="mt-1.5" />
       {showHistory && (
         <div className="mt-2 rounded-lg border border-line p-2.5 text-[12px]">
           {history.loading ? (

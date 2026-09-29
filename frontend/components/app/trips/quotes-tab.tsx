@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { ExternalLink, FileText, Mail, MessageSquare, RotateCw, Table2 } from "lucide-react";
 import { endpoints, sourceFileUrl, type SourceDocument } from "@/lib/api/endpoints";
-import { useApi, useMutation, usePoll } from "@/lib/api/hooks";
+import { useApi, useBoundedPoll, useMutation, useNow } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { useCan } from "../me-provider";
 import { fmtDateTime, humanize } from "../fmt";
 import { Btn, EmptyState, ErrorState, InlineError, LoadingBlock, Panel, Pill, Segmented } from "../ui";
 import { ComparisonCards, ComparisonTable } from "./comparison";
-import { IngestPanel, TERMINAL } from "./ingest-panel";
+import { IngestPanel, POLL_CEILING_MS, TERMINAL, isStalePending } from "./ingest-panel";
 import { LiveProcessingLog } from "./processing-log";
 import { useTrip } from "./trip-context";
 
@@ -20,9 +20,16 @@ export function QuotesTab() {
   const comparison = useApi(`comparison:${tripId}`, () => endpoints.comparison(tripId), version);
   const docs = useApi(`docs:${tripId}`, () => endpoints.sourceDocuments(tripId), version);
 
-  const anyPending = (docs.data?.items ?? []).some((d) => !TERMINAL.includes(d.extraction_status));
-  // Background-mode extraction: keep the documents list fresh until all settle.
-  usePoll(docs.reload, 2500, anyPending);
+  const now = useNow(15_000);
+  // Background-mode extraction: keep the documents list fresh until all settle,
+  // but not forever. Documents that look stalled stop counting, and each set of
+  // pending documents gets at most POLL_CEILING_MS of polling.
+  const activeIds = (docs.data?.items ?? [])
+    .filter((d) => !TERMINAL.includes(d.extraction_status) && !isStalePending(d, now))
+    .map((d) => d.id);
+  const anyPending = activeIds.length > 0;
+  const pollExpired = useBoundedPoll(docs.reload, 2500, anyPending, { maxMs: POLL_CEILING_MS, key: activeIds.join(",") });
+  const polling = anyPending && !pollExpired;
 
   return (
     <div className="flex flex-col gap-5">
@@ -34,7 +41,7 @@ export function QuotesTab() {
             bump();
           }}
         />
-        <LiveProcessingLog tripId={tripId} live={live || anyPending}
+        <LiveProcessingLog tripId={tripId} live={live || polling}
           refreshKey={version}
           className="min-h-[260px]"
           maxHeight={420}
@@ -72,7 +79,22 @@ export function QuotesTab() {
         )}
       </Panel>
 
-      <Panel title="Source documents" sub="Every file and message behind these quotes." bodyClassName="p-0 sm:p-0">
+      <Panel
+        title="Source documents"
+        sub={
+          anyPending && pollExpired
+            ? "Auto-refresh stopped after 3 minutes; some documents are still processing."
+            : "Every file and message behind these quotes."
+        }
+        actions={
+          anyPending && pollExpired ? (
+            <Btn size="xs" onClick={docs.reload} pending={docs.refreshing}>
+              <RotateCw className="h-3.5 w-3.5" aria-hidden="true" /> Refresh
+            </Btn>
+          ) : undefined
+        }
+        bodyClassName="p-0 sm:p-0"
+      >
         {docs.loading ? (
           <div className="p-5">
             <LoadingBlock rows={3} />
@@ -86,7 +108,7 @@ export function QuotesTab() {
         ) : (
           <ul className="divide-y divide-line">
             {docs.data.items.map((d) => (
-              <DocRow key={d.id} doc={d} onChanged={bump} />
+              <DocRow key={d.id} doc={d} stale={isStalePending(d, now)} onChanged={bump} />
             ))}
           </ul>
         )}
@@ -102,11 +124,11 @@ function DocIcon({ kind }: { kind: SourceDocument["kind"] }) {
   return <FileText className={cls} aria-hidden="true" />;
 }
 
-function DocRow({ doc, onChanged }: { doc: SourceDocument; onChanged: () => void }) {
+function DocRow({ doc, stale, onChanged }: { doc: SourceDocument; stale: boolean; onChanged: () => void }) {
   const canReprocess = useCan("field.review");
   const reprocess = useMutation(() => endpoints.reprocess(doc.id));
   const s = doc.extraction_status;
-  const tone = s === "succeeded" ? "green" : s === "failed" || s === "needs_manual" ? "amber" : "cyan";
+  const tone = s === "succeeded" ? "green" : s === "failed" || s === "needs_manual" || stale ? "amber" : "cyan";
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
       <DocIcon kind={doc.kind} />
@@ -127,17 +149,23 @@ function DocRow({ doc, onChanged }: { doc: SourceDocument; onChanged: () => void
           {doc.is_scanned ? " · scanned" : ""}
         </p>
         {doc.extraction_error && <p className="mt-0.5 text-xs text-amber">{doc.extraction_error}</p>}
+        {stale && (
+          <p className="mt-0.5 text-xs text-amber">
+            Still {s === "pending" ? "waiting to process" : "processing"} after several minutes. It may have stalled
+            {canReprocess ? "; reprocess to try again." : "; ask a broker to reprocess it."}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-2">
         {doc.intent && doc.intent !== "quote" && <Pill>{humanize(doc.intent)}</Pill>}
         {doc.extractor && <Pill>{doc.extractor}</Pill>}
         <Pill tone={tone} dot>
-          {humanize(s)}
+          {stale ? "Still processing" : humanize(s)}
         </Pill>
-        {canReprocess && TERMINAL.includes(s) && (
+        {canReprocess && (TERMINAL.includes(s) || stale) && (
           <Btn
             size="xs"
-            tone="ghost"
+            tone={stale ? "amber" : "ghost"}
             aria-label="Reprocess document"
             title="Re-extract"
             pending={reprocess.pending}
@@ -146,6 +174,7 @@ function DocRow({ doc, onChanged }: { doc: SourceDocument; onChanged: () => void
             }}
           >
             {!reprocess.pending && <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />}
+            {stale && "Reprocess"}
           </Btn>
         )}
       </div>

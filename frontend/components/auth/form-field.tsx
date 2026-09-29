@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 type Props = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   hint?: string;
+  /** A field-level error from the API; replaces the hint and marks the input invalid. */
+  error?: string | null;
 };
 
 export const inputClass = cn(
@@ -13,15 +15,32 @@ export const inputClass = cn(
   "disabled:opacity-60",
 );
 
-export function FormField({ label, hint, id, className, ...input }: Props) {
+export function FormField({ label, hint, error, id, className, ...input }: Props) {
   const fieldId = id ?? input.name;
+  const noteId = fieldId ? `${fieldId}-note` : undefined;
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={fieldId} className="text-[13px] font-medium text-fg-muted">
         {label}
       </label>
-      <input id={fieldId} className={cn(inputClass, className)} {...input} />
-      {hint && <p className="text-xs text-fg-dim">{hint}</p>}
+      <input
+        id={fieldId}
+        className={cn(inputClass, error && "border-amber/50", className)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error || hint ? noteId : undefined}
+        {...input}
+      />
+      {error ? (
+        <p id={noteId} className="text-xs text-amber">
+          {error}
+        </p>
+      ) : (
+        hint && (
+          <p id={noteId} className="text-xs text-fg-dim">
+            {hint}
+          </p>
+        )
+      )}
     </div>
   );
 }

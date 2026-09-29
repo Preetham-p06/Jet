@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { endpoints, type Flag, type FlagResolution, type FlagType } from "@/lib/api/endpoints";
+import { fieldErrorOf } from "@/lib/api/errors";
 import { useMutation } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { formatCents, humanize, parseMoneyToCents } from "./fmt";
@@ -175,7 +176,7 @@ function ResolveInner({
       )}
 
       {choice === "confirmed_amount" && (
-        <Field label="Confirmed amount (USD)" htmlFor="flag-amount" className="mt-4">
+        <Field label="Confirmed amount (USD)" htmlFor="flag-amount" className="mt-4" error={fieldErrorOf(resolve.error, "amount_cents")}>
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-fg-dim">$</span>
             <input
@@ -189,7 +190,7 @@ function ResolveInner({
         </Field>
       )}
       {options.length > 0 && (
-        <Field label={choice === "dismissed" ? "Note (required)" : "Note"} htmlFor="flag-note" className="mt-4">
+        <Field label={choice === "dismissed" ? "Note (required)" : "Note"} htmlFor="flag-note" className="mt-4" error={fieldErrorOf(resolve.error, "note")}>
           <textarea
             id="flag-note"
             value={note}
@@ -200,7 +201,7 @@ function ResolveInner({
         </Field>
       )}
       {err && <p className="mt-3 text-xs text-amber">{err}</p>}
-      <InlineError error={resolve.error} className="mt-3" />
+      <InlineError error={resolve.error} shownInline={choice === "confirmed_amount" ? ["amount_cents", "note"] : ["note"]} className="mt-3" />
     </Dialog>
   );
 }

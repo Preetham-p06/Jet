@@ -11,7 +11,7 @@ export function authErrorMessage(e: unknown, context: "login" | "signup"): strin
   }
   if (e.status === 403) return e.message || "This account is disabled. Ask a workspace admin for access.";
   if (e.status === 409) return e.message || "An account with that email already exists.";
-  if (e.status === 422) return e.message || "Please check the highlighted fields.";
+  if (e.status === 422) return e.hasFieldErrors ? "Please check the highlighted fields." : e.message;
   if (e.status === 429) return "Too many attempts. Wait a minute and try again.";
   if (e.status >= 500) return "Something went wrong on our side. Try again in a moment.";
   return e.message;

@@ -8,18 +8,37 @@ import {
   type ExtractionStatus,
   type SourceDocument,
 } from "@/lib/api/endpoints";
-import { useApi, useMutation, usePoll } from "@/lib/api/hooks";
+import { useApi, useBoundedPoll, useMutation } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
-import { useCan } from "../me-provider";
+import { useCan, useMe } from "../me-provider";
 import { humanize, toLocalInput } from "../fmt";
 import { Btn, Field, InlineError, Panel, Segmented, inputCls, selectCls, textareaCls } from "../ui";
 import { useTrip } from "./trip-context";
 
 const CHANNELS: DocumentChannel[] = ["pdf_upload", "email", "sms", "whatsapp", "paste", "other"];
 const ACCEPT = ".pdf,.eml,.txt,.png,.jpg,.jpeg,application/pdf,message/rfc822,text/plain,image/png,image/jpeg";
-const MAX_BYTES = 20 * 1024 * 1024;
+/** The backend's default `max_upload_mb`; used until the API reports its own. */
+export const DEFAULT_MAX_UPLOAD_MB = 15;
 
 export const TERMINAL: ExtractionStatus[] = ["succeeded", "failed", "needs_manual"];
+
+/** Stop auto-refreshing a pending document after this long. */
+export const POLL_CEILING_MS = 3 * 60_000;
+/** A pending or processing document older than this is shown as possibly stalled. */
+export const STALE_PENDING_MS = 3 * 60_000;
+
+/** Pending or processing, and uploaded more than `STALE_PENDING_MS` ago. */
+export function isStalePending(doc: Pick<SourceDocument, "extraction_status" | "created_at">, now: number): boolean {
+  if (TERMINAL.includes(doc.extraction_status) || !now) return false;
+  const created = Date.parse(doc.created_at);
+  return Number.isFinite(created) && now - created > STALE_PENDING_MS;
+}
+
+/** The upload limit from `/auth/me` once the backend reports it, else the default. */
+function maxUploadMb(me: object): number {
+  const v = (me as { max_upload_mb?: unknown }).max_upload_mb;
+  return typeof v === "number" && v > 0 ? v : DEFAULT_MAX_UPLOAD_MB;
+}
 
 type Mode = "file" | "paste";
 
@@ -37,6 +56,7 @@ function guessChannel(file: File): DocumentChannel {
 export function IngestPanel({ onSettled, onStarted }: { onSettled: () => void; onStarted: () => void }) {
   const { tripId, version } = useTrip();
   const canIngest = useCan("ingest");
+  const maxMb = maxUploadMb(useMe());
   const [mode, setMode] = useState<Mode>("file");
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
@@ -55,7 +75,7 @@ export function IngestPanel({ onSettled, onStarted }: { onSettled: () => void; o
   const ingest = useMutation((form: FormData) => endpoints.ingest(tripId, form));
 
   const pending = tracking && !TERMINAL.includes(tracking.extraction_status);
-  usePoll(
+  const pollExpired = useBoundedPoll(
     async () => {
       if (!tracking) return;
       try {
@@ -68,13 +88,14 @@ export function IngestPanel({ onSettled, onStarted }: { onSettled: () => void; o
     },
     1500,
     !!pending,
+    { maxMs: POLL_CEILING_MS, key: tracking?.id ?? "" },
   );
 
   function pickFile(f: File | undefined | null) {
     setFileError(null);
     if (!f) return;
-    if (f.size > MAX_BYTES) {
-      setFileError("That file is over 20 MB.");
+    if (f.size > maxMb * 1024 * 1024) {
+      setFileError(`That file is over ${maxMb} MB.`);
       return;
     }
     setFile(f);
@@ -158,7 +179,7 @@ export function IngestPanel({ onSettled, onStarted }: { onSettled: () => void; o
                 <span className="text-fg-dim">· {(file.size / 1024).toFixed(0)} KB</span>
               </p>
             ) : (
-              <p className="text-[13px] text-fg-muted">Drop an operator quote here</p>
+              <p className="text-[13px] text-fg-muted">Drop an operator quote here <span className="text-fg-dim">· up to {maxMb} MB</span></p>
             )}
             <Btn size="xs" onClick={() => inputRef.current?.click()}>
               <FileUp className="h-3.5 w-3.5" aria-hidden="true" /> {file ? "Choose another" : "Browse files"}
@@ -250,13 +271,13 @@ export function IngestPanel({ onSettled, onStarted }: { onSettled: () => void; o
           </Btn>
         </div>
 
-        {tracking && <TrackingRow doc={tracking} notice={notice} />}
+        {tracking && <TrackingRow doc={tracking} notice={notice} stalled={!!pending && pollExpired} />}
       </form>
     </Panel>
   );
 }
 
-function TrackingRow({ doc, notice }: { doc: SourceDocument; notice: string | null }) {
+function TrackingRow({ doc, notice, stalled }: { doc: SourceDocument; notice: string | null; stalled: boolean }) {
   const s = doc.extraction_status;
   const done = s === "succeeded";
   const bad = s === "failed" || s === "needs_manual";
@@ -285,6 +306,11 @@ function TrackingRow({ doc, notice }: { doc: SourceDocument; notice: string | nu
         </p>
         {doc.extraction_error && <p className="mt-0.5 text-fg-muted">{doc.extraction_error}</p>}
         {notice && <p className="mt-0.5 text-fg-muted">{notice}</p>}
+        {stalled && (
+          <p className="mt-0.5 text-fg-muted">
+            Still processing after 3 minutes. Auto-refresh has stopped; check Source documents below, where you can reprocess it.
+          </p>
+        )}
       </div>
     </div>
   );

@@ -111,6 +111,54 @@ export function usePoll(fn: () => void, ms: number, enabled = true) {
   }, [ms, enabled]);
 }
 
+/**
+ * `usePoll` with a ceiling: polls every `ms` while `enabled`, for at most
+ * `maxMs` per `key`. Returns true once the ceiling is hit for the current key;
+ * a new key (e.g. a newly pending document) starts a fresh window.
+ */
+export function useBoundedPoll(
+  fn: () => void,
+  ms: number,
+  enabled: boolean,
+  { maxMs, key }: { maxMs: number; key: string },
+): boolean {
+  const fnRef = useRef(fn);
+  useEffect(() => {
+    fnRef.current = fn;
+  });
+  const [expiredKey, setExpiredKey] = useState<string | null>(null);
+  const expired = expiredKey === key;
+  useEffect(() => {
+    if (!enabled || expired) return;
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      if (Date.now() - started >= maxMs) {
+        window.clearInterval(id);
+        setExpiredKey(key);
+        return;
+      }
+      if (document.visibilityState === "visible") fnRef.current();
+    }, ms);
+    return () => window.clearInterval(id);
+  }, [ms, enabled, expired, maxMs, key]);
+  return expired;
+}
+
+/** `Date.now()`, refreshed every `ms` (0 until the first tick after mount, so SSR matches). */
+export function useNow(ms: number): number {
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const first = window.setTimeout(tick, 0);
+    const id = window.setInterval(tick, ms);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, [ms]);
+  return now;
+}
+
 /** User-facing message for a failed request. */
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) {
