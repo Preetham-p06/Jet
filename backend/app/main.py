@@ -7,13 +7,14 @@ import re
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm.exc import StaleDataError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -23,7 +24,9 @@ from app.config import Settings, get_settings
 from app.db import TenantViolation, make_engine, make_session_factory
 from app.errors import DomainError, RateLimited
 from app.logging import configure_logging, request_id_var
+from app.models.base import utcnow
 from app.security.ratelimit import InMemoryRateLimiter, RateLimiter
+from app.services import pipeline
 from app.services.storage import LocalStorage, Storage, StorageError
 
 log = logging.getLogger("app")
@@ -82,6 +85,80 @@ class RequestContextMiddleware:
             request_id_var.reset(token)
 
 
+#: Upload routes whose body may be as large as `MAX_UPLOAD_MB` (plus form overhead).
+UPLOAD_PATH = re.compile(rf"^{re.escape(API_PREFIX)}/trips/[^/]+/quotes/ingest$")
+#: Multipart boundaries, headers and the other form fields (pasted text is
+#: capped at 200,000 characters, up to 4 bytes each).
+UPLOAD_OVERHEAD_BYTES = 1024 * 1024
+
+
+class _BodyTooLarge(Exception):
+    pass
+
+
+class UploadSizeLimitMiddleware:
+    """Rejects an oversized ingest upload before it is parsed or spooled.
+
+    A `Content-Length` above the limit gets 413 straight away; a body without
+    one (chunked) is counted as it streams and cut off at the limit.
+    """
+
+    def __init__(self, app: ASGIApp, settings: Settings) -> None:
+        self.app = app
+        self.settings = settings
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not UPLOAD_PATH.match(scope["path"]):
+            await self.app(scope, receive, send)
+            return
+        limit = self.settings.max_upload_bytes + UPLOAD_OVERHEAD_BYTES
+        too_large = _error(
+            413,
+            f"Files are limited to {self.settings.max_upload_mb} MB",
+            "payload_too_large",
+        )
+        length = dict(scope["headers"]).get(b"content-length")
+        if length is not None:
+            try:
+                declared = int(length)
+            except ValueError:
+                declared = limit + 1
+            if declared > limit:
+                await too_large(scope, receive, send)
+                return
+
+        received = 0
+        exceeded = False
+        started = False
+
+        async def limited_receive() -> Message:
+            nonlocal received, exceeded
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    exceeded = True
+                    raise _BodyTooLarge
+            return message
+
+        async def guarded_send(message: Message) -> None:
+            nonlocal started
+            if exceeded:  # whatever the app answered, the answer is 413
+                if message["type"] == "http.response.start" and not started:
+                    started = True
+                    await too_large(scope, receive, send)
+                return
+            started = started or message["type"] == "http.response.start"
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, guarded_send)
+        except _BodyTooLarge:
+            if not started:
+                started = True
+                await too_large(scope, receive, send)
+
+
 def _error(status_code: int, detail: str, code: str, **extra: Any) -> JSONResponse:
     body: dict[str, Any] = {"detail": detail, "code": code}
     body.update({k: v for k, v in extra.items() if v is not None})
@@ -138,6 +215,18 @@ def _register_error_handlers(app: FastAPI) -> None:
         return _error(501, "This feature is not implemented yet", "not_implemented")
 
 
+def _fail_stale_documents(app: FastAPI, settings: Settings) -> None:
+    """Startup: documents left pending/processing by a restart become failed."""
+    try:
+        pipeline.fail_stale_documents(
+            app.state.session_factory,
+            now=utcnow(),
+            older_than=timedelta(minutes=settings.stale_document_minutes),
+        )
+    except SQLAlchemyError:  # e.g. migrations not applied yet; never block startup
+        log.exception("could not check for stale source documents")
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -149,7 +238,8 @@ def create_app(
     engine = make_engine(settings.database_url)
 
     @asynccontextmanager
-    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app_: FastAPI) -> AsyncIterator[None]:
+        _fail_stale_documents(app_, settings)
         yield
         engine.dispose()
 
@@ -183,6 +273,7 @@ def create_app(
             allow_methods=["GET", "POST", "PATCH", "DELETE"],
             allow_headers=["Content-Type", "Authorization", "X-JetStream-Client"],
         )
+    app.add_middleware(UploadSizeLimitMiddleware, settings=settings)
     app.add_middleware(RequestContextMiddleware)
     return app
 

@@ -135,16 +135,20 @@ def headline_minor(state: QuoteState) -> tuple[int | None, bool]:
     rate = state.hourly_rate_minor
     if rate is None:
         return None, False
-    hours = max(
-        (h for h in (state.billable_hours, state.daily_minimum_hours) if h is not None),
-        default=None,
-    )
-    if hours is not None:
+    if state.billable_hours is not None:
+        hours = max(state.billable_hours, state.daily_minimum_hours or Decimal(0))
         return to_int_half_up(Decimal(rate) * hours), False
-    if state.flight_time_minutes:
-        tenths = math.ceil(state.flight_time_minutes / 6)
-        return to_int_half_up(Decimal(rate) * Decimal(tenths) / 10), True
-    return None, False
+    # No billable hours: bill the flight time (to the next tenth), never less than
+    # the daily minimum. Either way the figure is an estimate.
+    flown = (
+        Decimal(math.ceil(state.flight_time_minutes / 6)) / 10
+        if state.flight_time_minutes
+        else None
+    )
+    hours_est = max((h for h in (flown, state.daily_minimum_hours) if h is not None), default=None)
+    if hours_est is None:
+        return None, False
+    return to_int_half_up(Decimal(rate) * hours_est), True
 
 
 def fet_estimate_cents(state: QuoteState, fx: FxTable | None = None) -> int | None:

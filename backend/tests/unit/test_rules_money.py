@@ -94,3 +94,54 @@ def test_hourly_rate_with_quantity() -> None:
     [money] = find_money("$5,200 per hour")
     assert money.per_hour
     assert money.quantity is None
+
+
+@pytest.mark.parametrize(
+    ("text", "minor", "currency"),
+    [
+        ("Total: 32 500,00 €", 3_250_000, "EUR"),
+        ("Total: 32 500,00 €", 3_250_000, "EUR"),  # narrow no-break space
+        ("Total: 32 500,00 €", 3_250_000, "EUR"),  # thin space
+        ("Total: 32 500 EUR", 3_250_000, "EUR"),  # no-break space
+        ("Total: EUR 1 250 000", 125_000_000, "EUR"),
+        ("Total: CHF 12'500", 1_250_000, "CHF"),
+        ("Total: CHF 12’500.50", 1_250_050, "CHF"),
+        ("Total: USD 41 800", 4_180_000, "USD"),
+    ],
+)
+def test_space_and_apostrophe_thousands_separators(text: str, minor: int, currency: str) -> None:
+    [money] = find_money(text, has_anchor=True)
+    assert (money.amount_minor, money.currency) == (minor, currency)
+
+
+def test_space_grouping_does_not_join_separate_numbers() -> None:
+    # Mixed separators are two numbers, and bare space-grouped digits are not money.
+    [money] = find_money("Charter $41,800 200 nm", has_anchor=True)
+    assert money.amount_minor == 4_180_000
+    assert find_money("legs 3 100", has_anchor=True) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "minor"),
+    [("$1.2M", 120_000_000), ("USD 1.25m", 125_000_000), ("€2M", 200_000_000)],
+)
+def test_million_suffix_with_a_currency(text: str, minor: int) -> None:
+    [money] = find_money(f"Charter price {text}")
+    assert money.amount_minor == minor
+
+
+def test_million_suffix_without_a_currency_is_not_money() -> None:
+    assert find_money("quote is 1.2M", has_anchor=True) == []
+    assert find_money("flight time 2h 58m", has_anchor=True) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("12'500", Decimal("12500")),
+        ("32 500,00", Decimal("32500.00")),
+        ("1.2M", Decimal("1200000")),
+    ],
+)
+def test_parse_amount_grouping_and_million(text: str, value: Decimal) -> None:
+    assert parse_amount(text) == value

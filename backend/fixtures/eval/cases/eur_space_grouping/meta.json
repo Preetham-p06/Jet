@@ -1,0 +1,6 @@
+{
+  "description": "EUR amounts with space thousands separators (32 500,00 €)",
+  "demo": false,
+  "channel": "paste",
+  "input": "input.txt"
+}

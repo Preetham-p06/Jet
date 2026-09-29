@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+import ipaddress
 from collections.abc import Callable
 from typing import Annotated, Any
 
@@ -77,8 +79,39 @@ def request_id_of(request: Request) -> str:
     return str(getattr(request.state, "request_id", "") or "")
 
 
-def client_ip(request: Request) -> str | None:
-    return request.client.host if request.client else None
+def client_ip(request: Request, settings: Settings | None = None) -> str | None:
+    """The caller's IP. `X-Forwarded-For` is believed only when the direct peer is
+    in `TRUSTED_PROXIES`; the client is then the rightmost untrusted hop."""
+    peer = request.client.host if request.client else None
+    if peer is None:
+        return None
+    trusted = _trusted_networks(tuple((settings or request.app.state.settings).trusted_proxies))
+    if not _in(peer, trusted):
+        return peer
+    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",")]
+    for hop in reversed([h for h in hops if h]):
+        try:
+            ipaddress.ip_address(hop)
+        except ValueError:
+            return peer
+        if not _in(hop, trusted):
+            return hop
+    return peer
+
+
+@functools.lru_cache(maxsize=8)
+def _trusted_networks(
+    entries: tuple[str, ...],
+) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    return tuple(ipaddress.ip_network(e, strict=False) for e in entries)
+
+
+def _in(host: str, networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]) -> bool:
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return any(addr in net for net in networks)
 
 
 DbSession = Annotated[Session, Depends(get_db)]

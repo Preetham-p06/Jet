@@ -224,6 +224,15 @@ def _fet_base(headline: int, lines: Sequence[NormalizedFeeLine]) -> int:
     )
 
 
+def _fet_upper_base(headline: int, lines: Sequence[NormalizedFeeLine]) -> int:
+    """FET base of the upper bound: every line counted in it, estimates included."""
+    return headline + sum(
+        (ln.amount_cents if ln.amount_cents is not None else ln.estimate_cents) or 0
+        for ln in lines
+        if ln.counts_in_upper and ln.category not in FET_BASE_EXCLUDED and ln.percent is None
+    )
+
+
 def _unresolved(line: NormalizedFeeLine) -> bool:
     return line.amount_status in _AMOUNT_STATUSES and not line.counts_in_known
 
@@ -252,13 +261,18 @@ def normalize_quote(
     for exp in expected:
         expected_by_cat.setdefault(exp.category, exp)
 
-    # Pass 1: every non-percent line.
+    # Pass 1: every line priced on its own. Percent lines, and a not_stated FET
+    # line without an amount, depend on the others and wait for pass 2.
     lines: list[NormalizedFeeLine | None] = []
     for fee in state.fees:
-        if _is_percent(fee):
+        amount_one = conv.usd(fee.amount_minor, fee.currency or ccy)
+        if _is_percent(fee) or (
+            fee.category is FeeCategory.FET
+            and fee.status is AmountStatus.NOT_STATED
+            and amount_one is None
+        ):
             lines.append(None)
             continue
-        amount_one = conv.usd(fee.amount_minor, fee.currency or ccy)
         amount = None if amount_one is None else to_int_half_up(amount_one * _multiplier(fee, trip))
         fallback = (
             fee_rules.rule_estimate(fee.category, state, trip)
@@ -266,20 +280,8 @@ def normalize_quote(
             else (None, None)
         )
         lines.append(_priced(_base_line(fee, state), fee, amount, expected_by_cat, fallback))
-
-    # Pass 2: percent lines on the FET base of what is known so far.
-    known_so_far = [ln for ln in lines if ln is not None]
-    for i, fee in enumerate(state.fees):
-        if lines[i] is not None:
-            continue
-        pct_amount = (
-            None
-            if headline is None or fee.percent is None
-            else percent_of(_fet_base(headline, known_so_far), fee.percent)
-        )
-        lines[i] = _priced(_base_line(fee, state), fee, pct_amount, expected_by_cat)
-    real = [ln for ln in lines if ln is not None]
-    present = {ln.category for ln in real}
+    priced = [ln for ln in lines if ln is not None]
+    present = {fee.category for fee in state.fees}
 
     # "All in": covered categories without a line of their own.
     synthetic: list[NormalizedFeeLine] = []
@@ -298,39 +300,83 @@ def normalize_quote(
                     )
                 )
                 present.add(cat)
-    itemized_conflict = state.all_in and any(
-        ln.amount_status in (AmountStatus.STATED, AmountStatus.ESTIMATED)
-        and not ln.explicitly_extra
-        and (ln.original_amount_minor is not None or ln.amount_cents is not None)
-        for ln in real
-    )
 
-    # Expected fees the quote does not mention.
+    # Expected fees the quote does not mention. The FET estimate waits for its base.
     conditional: list[ExpectedFee] = []
+    synthetic_fet: ExpectedFee | None = None
     for exp in expected:
         if exp.category in present:
             continue
         if exp.severity is FlagSeverity.INFO:
             conditional.append(exp)
             continue
-        estimate = exp.estimate_cents
-        if exp.rule_id == "fet" and headline is not None:
-            estimate = percent_of(_fet_base(headline, real), FET_PERCENT)
+        present.add(exp.category)
+        if exp.rule_id == "fet":
+            synthetic_fet = exp
+            continue
         synthetic.append(
             NormalizedFeeLine(
                 category=exp.category,
                 label=CATEGORY_LABELS[exp.category],
                 amount_status=AmountStatus.NOT_STATED,
                 counts_in_known=False,
+                counts_in_upper=exp.estimate_cents is not None,
+                sort_order=0,
+                estimate_cents=exp.estimate_cents,
+                estimate_basis=_basis(exp) if exp.estimate_cents is not None else None,
+            )
+        )
+
+    # Pass 2: percent lines on the FET base. The known total uses the base of
+    # what is known; the upper bound uses the base of every line that counts in
+    # it, so accepting an estimate can never lift `known` above the old `upper`.
+    known_base = None if headline is None else _fet_base(headline, priced)
+    upper_base = None if headline is None else _fet_upper_base(headline, [*priced, *synthetic])
+    upper_adjust = 0
+    for i, fee in enumerate(state.fees):
+        if lines[i] is not None:
+            continue
+        if not _is_percent(fee):  # not_stated FET without an amount
+            fallback = (
+                (None, None)
+                if upper_base is None
+                else (percent_of(upper_base, FET_PERCENT), "rule:fet")
+            )
+            lines[i] = _priced(_base_line(fee, state), fee, None, expected_by_cat, fallback)
+            continue
+        assert fee.percent is not None  # noqa: S101 - _is_percent
+        pct_amount = None if known_base is None else percent_of(known_base, fee.percent)
+        line = _priced(_base_line(fee, state), fee, pct_amount, expected_by_cat)
+        if line.counts_in_upper and upper_base is not None and pct_amount is not None:
+            upper_adjust += percent_of(upper_base, fee.percent) - pct_amount
+        lines[i] = line
+    real = [ln for ln in lines if ln is not None]
+    if synthetic_fet is not None:
+        estimate = (
+            synthetic_fet.estimate_cents
+            if upper_base is None
+            else percent_of(upper_base, FET_PERCENT)
+        )
+        synthetic.append(
+            NormalizedFeeLine(
+                category=synthetic_fet.category,
+                label=CATEGORY_LABELS[synthetic_fet.category],
+                amount_status=AmountStatus.NOT_STATED,
+                counts_in_known=False,
                 counts_in_upper=estimate is not None,
                 sort_order=0,
                 estimate_cents=estimate,
-                estimate_basis=_basis(exp) if estimate is not None else None,
-                percent=FET_PERCENT if exp.rule_id == "fet" else None,
-                unit=FeeUnit.PERCENT if exp.rule_id == "fet" else FeeUnit.FLAT,
+                estimate_basis=_basis(synthetic_fet) if estimate is not None else None,
+                percent=FET_PERCENT,
+                unit=FeeUnit.PERCENT,
             )
         )
-        present.add(exp.category)
+    itemized_conflict = state.all_in and any(
+        ln.amount_status in (AmountStatus.STATED, AmountStatus.ESTIMATED)
+        and not ln.explicitly_extra
+        and (ln.original_amount_minor is not None or ln.amount_cents is not None)
+        for ln in real
+    )
 
     ordered = sorted(enumerate([*real, *synthetic]), key=_sort_key)
     final = tuple(replace(ln, sort_order=i) for i, (_, ln) in enumerate(ordered))
@@ -339,10 +385,14 @@ def normalize_quote(
     upper: int | None = None
     if headline is not None:
         known = headline + sum(ln.amount_cents or 0 for ln in final if ln.counts_in_known)
-        upper = headline + sum(
-            (ln.amount_cents if ln.amount_cents is not None else ln.estimate_cents) or 0
-            for ln in final
-            if ln.counts_in_upper
+        upper = (
+            headline
+            + sum(
+                (ln.amount_cents if ln.amount_cents is not None else ln.estimate_cents) or 0
+                for ln in final
+                if ln.counts_in_upper
+            )
+            + upper_adjust
         )
 
     stated = conv.usd(state.stated_total_minor, ccy)

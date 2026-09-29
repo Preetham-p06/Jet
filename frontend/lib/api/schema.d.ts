@@ -81,7 +81,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Clear the session cookie */
+        /**
+         * Clear the session cookie and revoke the user's tokens (every session)
+         * @description Bumps `token_version`, so this token (and the user's other sessions and
+         *     Bearer tokens) stops working even if it was copied before logout.
+         */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -1010,7 +1014,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fee categories, statuses and flag types with labels */
+        /** Fee categories, statuses and flag types with labels, and the upload limit */
         get: operations["get_vocabulary"];
         put?: never;
         post?: never;
@@ -3495,6 +3499,11 @@ export interface components {
             proposal_statuses: components["schemas"]["ProposalStatus"][];
             /** Roles */
             roles: components["schemas"]["Role"][];
+            /**
+             * Max Upload Mb
+             * @description Largest file the ingest endpoint accepts (MB)
+             */
+            max_upload_mb: number;
         };
         /** WorkspaceOut */
         WorkspaceOut: {

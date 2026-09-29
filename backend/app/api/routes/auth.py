@@ -63,6 +63,34 @@ def _check_rate(limiter: RateLimiter, settings: Settings, key: str) -> None:
         raise RateLimited(decision.retry_after_s)
 
 
+def _throttled_authenticate(
+    db: Session,
+    request: Request,
+    settings: Settings,
+    limiter: RateLimiter,
+    email: str,
+    password: str,
+) -> User:
+    """Rate limit per client IP, then a short per-account backoff after repeated
+    failures (never a lockout, so an attacker cannot keep the owner out)."""
+    _check_rate(limiter, settings, f"login-ip:{client_ip(request, settings)}")
+    account = f"login-account:{email.casefold()}"
+    wait = limiter.backoff_s(
+        account,
+        free_failures=settings.login_backoff_after,
+        max_backoff_s=settings.login_backoff_max_s,
+    )
+    if wait:
+        raise RateLimited(wait)
+    try:
+        user = _authenticate(db, email, password)
+    except Unauthorized:
+        limiter.record_failure(account)
+        raise
+    limiter.reset(account)
+    return user
+
+
 def _set_session_cookie(response: Response, settings: Settings, user: User) -> datetime:
     token, expires = create_access_token(
         settings,
@@ -164,8 +192,7 @@ def login(
     settings: AppSettings,
     limiter: Limiter,
 ) -> MeOut:
-    _check_rate(limiter, settings, f"login:{client_ip(request)}:{body.email}")
-    user = _authenticate(db, body.email, body.password)
+    user = _throttled_authenticate(db, request, settings, limiter, body.email, body.password)
     db.commit()
     _set_session_cookie(response, settings, user)
     return _me(user, user.workspace)
@@ -183,8 +210,7 @@ def token(
     limiter: Limiter,
 ) -> TokenOut:
     email = form.username.strip().lower()
-    _check_rate(limiter, settings, f"login:{client_ip(request)}:{email}")
-    user = _authenticate(db, email, form.password)
+    user = _throttled_authenticate(db, request, settings, limiter, email, form.password)
     db.commit()
     access_token, expires = create_access_token(
         settings,
@@ -195,8 +221,17 @@ def token(
     return TokenOut(access_token=access_token, expires_at=expires)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Clear the session cookie")
-def logout(ctx: AnyUser, settings: AppSettings) -> Response:
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Clear the session cookie and revoke the user's tokens (every session)",
+)
+def logout(ctx: AnyUser, db: DbSession, settings: AppSettings) -> Response:
+    """Bumps `token_version`, so this token (and the user's other sessions and
+    Bearer tokens) stops working even if it was copied before logout."""
+    ctx.user.token_version += 1
+    audit.record(db, ctx, "user.logout", ctx.user, after={"token_version_bumped": True})
+    db.commit()
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(
         settings.cookie_name,
@@ -227,7 +262,7 @@ def accept_invite(
     settings: AppSettings,
     limiter: Limiter,
 ) -> MeOut:
-    _check_rate(limiter, settings, f"invite:{client_ip(request)}")
+    _check_rate(limiter, settings, f"invite:{client_ip(request, settings)}")
     invite = db.scalar(select(Invite).where(Invite.token_hash == hash_invite_token(body.token)))
     now = datetime.now(UTC)
     if (
@@ -260,7 +295,7 @@ def accept_invite(
         after={"email": user.email, "role": user.role.value},
         workspace_id=invite.workspace_id,
         actor_label=user.email,
-        ip=client_ip(request),
+        ip=client_ip(request, settings),
     )
     db.commit()
     _set_session_cookie(response, settings, user)

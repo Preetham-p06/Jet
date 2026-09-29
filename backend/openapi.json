@@ -365,7 +365,8 @@
         "tags": [
           "auth"
         ],
-        "summary": "Clear the session cookie",
+        "summary": "Clear the session cookie and revoke the user's tokens (every session)",
+        "description": "Bumps `token_version`, so this token (and the user's other sessions and\nBearer tokens) stops working even if it was copied before logout.",
         "operationId": "logout",
         "responses": {
           "204": {
@@ -7589,7 +7590,7 @@
         "tags": [
           "meta"
         ],
-        "summary": "Fee categories, statuses and flag types with labels",
+        "summary": "Fee categories, statuses and flag types with labels, and the upload limit",
         "operationId": "get_vocabulary",
         "responses": {
           "200": {
@@ -15414,6 +15415,11 @@
             },
             "type": "array",
             "title": "Roles"
+          },
+          "max_upload_mb": {
+            "type": "integer",
+            "title": "Max Upload Mb",
+            "description": "Largest file the ingest endpoint accepts (MB)"
           }
         },
         "type": "object",
@@ -15428,7 +15434,8 @@
           "trip_statuses",
           "trip_operator_statuses",
           "proposal_statuses",
-          "roles"
+          "roles",
+          "max_upload_mb"
         ],
         "title": "VocabularyOut"
       },

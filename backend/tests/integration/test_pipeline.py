@@ -3,11 +3,15 @@ extractor, merge and recompute (spec §0 "Pipeline", §3)."""
 
 from __future__ import annotations
 
+import dataclasses
+import io
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -27,6 +31,7 @@ from app.models import (
     TripOperator,
     Workspace,
 )
+from app.models.base import utcnow
 from app.models.enums import (
     DocumentChannel,
     DocumentKind,
@@ -255,6 +260,67 @@ def test_email_attachment_becomes_child_document(
     assert out.quote.known_total_cents == 5_240_000
 
 
+def _blank_pdf(tag: int, pages: int) -> bytes:
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    for _ in range(pages):
+        writer.add_blank_page(width=72, height=72)
+    writer.add_metadata({"/Title": f"attachment {tag}"})
+    buf = io.BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
+
+
+def _email_with_pdfs(pdfs: list[bytes]) -> bytes:
+    msg = EmailMessage()
+    msg["From"] = "ops@fanout.example"
+    msg["To"] = "broker@example.com"
+    msg["Subject"] = "Quotes"
+    msg["Message-ID"] = "<fanout@fanout.example>"
+    msg.set_content("See attached.")
+    for i, pdf in enumerate(pdfs):
+        msg.add_attachment(pdf, maintype="application", subtype="pdf", filename=f"{i}.pdf")
+    return msg.as_bytes()
+
+
+def _children(db: Session, parent: SourceDocument) -> list[SourceDocument]:
+    return list(db.scalars(select(SourceDocument).where(SourceDocument.parent_id == parent.id)))
+
+
+def test_email_attachments_are_capped_by_count(
+    db: Session, ctx: RequestContext, trip: Trip, settings: Settings, storage: LocalStorage
+) -> None:
+    assert settings.max_attachments == 10
+    fake = FakeExtractor()
+    data = _email_with_pdfs([_blank_pdf(i, 1) for i in range(40)])
+    out = ingest(
+        db, ctx, trip, pipeline.IngestCommand(data=data, filename="q.eml"), settings, storage, fake
+    )
+    assert len(_children(db, out.document)) == 10
+    assert len(fake.calls) <= 11  # the email itself and ten attachments
+    warn = [e.message for e in events(db, trip) if "limit" in e.message]
+    assert any("30" in m and "10" in m for m in warn), warn
+
+
+def test_email_attachments_are_capped_by_total_pages(
+    db: Session, ctx: RequestContext, trip: Trip, settings: Settings, storage: LocalStorage
+) -> None:
+    capped = settings.model_copy(update={"max_total_pages": 5})
+    data = _email_with_pdfs([_blank_pdf(i, 2) for i in range(4)])
+    out = ingest(
+        db,
+        ctx,
+        trip,
+        pipeline.IngestCommand(data=data, filename="q.eml"),
+        capped,
+        storage,
+        FakeExtractor(),
+    )
+    kids = _children(db, out.document)
+    assert len(kids) == 2 and sum(k.page_count or 0 for k in kids) == 4
+
+
 def test_scanned_pdf_without_claude_needs_manual(
     db: Session, ctx: RequestContext, trip: Trip, settings: Settings, storage: LocalStorage
 ) -> None:
@@ -405,6 +471,119 @@ def test_background_mode_queues_then_processes(
     assert quote is not None and quote.known_total_cents == 4_720_000
 
 
+def test_stale_pending_and_processing_documents_are_failed(
+    db: Session,
+    ctx: RequestContext,
+    trip: Trip,
+    settings: Settings,
+    storage: LocalStorage,
+    session_factory: sessionmaker[Session],
+) -> None:
+    bg = settings.model_copy(update={"pipeline_mode": PipelineMode.BACKGROUND})
+    stuck = ingest(db, ctx, trip, cmd("quote-final-v7.pdf", 126), bg, storage).document
+    running = ingest(db, ctx, trip, cmd("operator_quote_18.pdf", 216), bg, storage).document
+    fresh = ingest(db, ctx, trip, cmd("atlas_quote_01.pdf", 1), bg, storage).document
+    running.extraction_status = ExtractionStatus.PROCESSING
+    db.commit()
+    now = utcnow()
+    for doc, age in ((stuck, 60), (running, 30), (fresh, 1)):
+        doc.updated_at = now - timedelta(minutes=age)
+    db.commit()
+
+    failed = pipeline.fail_stale_documents(
+        session_factory, now=now, older_than=timedelta(minutes=15)
+    )
+    assert failed == 2
+    db.expire_all()
+    for doc in (stuck, running):
+        row = db.get(SourceDocument, doc.id)
+        assert row is not None and row.extraction_status is ExtractionStatus.FAILED
+        assert "interrupted" in (row.extraction_error or "")
+    row = db.get(SourceDocument, fresh.id)
+    assert row is not None and row.extraction_status is ExtractionStatus.PENDING
+    assert (
+        pipeline.fail_stale_documents(session_factory, now=now, older_than=timedelta(minutes=15))
+        == 0
+    )
+    # A failed document can be reprocessed.
+    res = pipeline.reprocess_document(
+        db,
+        ctx,
+        db.get(SourceDocument, stuck.id),
+        settings=settings,
+        storage=storage,
+        extractor=RULES,  # type: ignore[arg-type]
+    )
+    assert res.document.extraction_status is ExtractionStatus.SUCCEEDED
+
+
+def test_background_extractor_error_ends_failed_with_extraction_error(
+    db: Session,
+    ctx: RequestContext,
+    trip: Trip,
+    settings: Settings,
+    storage: LocalStorage,
+    session_factory: sessionmaker[Session],
+) -> None:
+    bg = settings.model_copy(update={"pipeline_mode": PipelineMode.BACKGROUND})
+    out = ingest(db, ctx, trip, cmd("quote-final-v7.pdf", 126), bg, storage)
+    db.commit()
+    pipeline.run_in_background(
+        session_factory,
+        trip.workspace_id,
+        out.document.id,
+        settings=bg,
+        storage=storage,
+        extractor=FakeExtractor(error=RuntimeError("boom")),
+    )
+    db.expire_all()
+    doc = db.get(SourceDocument, out.document.id)
+    assert doc is not None and doc.extraction_status is ExtractionStatus.FAILED
+    assert doc.extraction_error
+
+
+def test_background_email_with_pdf_attachment_processes_the_child(
+    db: Session,
+    ctx: RequestContext,
+    trip: Trip,
+    settings: Settings,
+    storage: LocalStorage,
+    session_factory: sessionmaker[Session],
+) -> None:
+    bg = settings.model_copy(update={"pipeline_mode": PipelineMode.BACKGROUND})
+    msg = EmailMessage()
+    msg["From"] = "Northstar Jets <charter@northstarjets.example>"
+    msg["To"] = "broker@example.com"
+    msg["Subject"] = "Quote attached"
+    msg["Message-ID"] = "<bg@northstarjets.example>"
+    msg.set_content("Hi, please find our quote attached.\nNorthstar Jets")
+    msg.add_attachment(
+        (FIXTURES / "operator_quote_18.pdf").read_bytes(),
+        maintype="application",
+        subtype="pdf",
+        filename="operator_quote_18.pdf",
+    )
+    out = ingest(
+        db, ctx, trip, pipeline.IngestCommand(data=msg.as_bytes(), filename="q.eml"), bg, storage
+    )
+    assert out.queued
+    child_id = _children(db, out.document)[0].id
+    db.commit()
+    pipeline.run_in_background(
+        session_factory,
+        trip.workspace_id,
+        out.document.id,
+        settings=bg,
+        storage=storage,
+        extractor=RULES,
+    )
+    db.expire_all()
+    child = db.get(SourceDocument, child_id)
+    assert child is not None and child.extraction_status is ExtractionStatus.SUCCEEDED
+    quote = db.get(Quote, child.quote_id)
+    assert quote is not None and quote.known_total_cents == 5_240_000
+
+
 def test_reprocess_is_idempotent_and_keeps_reviews(
     db: Session, ctx: RequestContext, trip: Trip, settings: Settings, storage: LocalStorage
 ) -> None:
@@ -468,3 +647,81 @@ def test_fake_extractor_scalar_values_are_merged(
     assert out.quote is not None and out.created_quote
     assert out.quote.headline_cents == 1_000_000 and out.quote.seats == 8
     assert fake.calls and fake.calls[0][1].pax == 7
+
+
+def test_app_startup_fails_stale_documents(
+    app: FastAPI,
+    db: Session,
+    ctx: RequestContext,
+    trip: Trip,
+    settings: Settings,
+    storage: LocalStorage,
+) -> None:
+    bg = settings.model_copy(update={"pipeline_mode": PipelineMode.BACKGROUND})
+    doc = ingest(db, ctx, trip, cmd("quote-final-v7.pdf", 126), bg, storage).document
+    doc.updated_at = utcnow() - timedelta(minutes=settings.stale_document_minutes + 1)
+    db.commit()
+    with TestClient(app):  # runs the lifespan startup
+        pass
+    db.expire_all()
+    row = db.get(SourceDocument, doc.id)
+    assert row is not None and row.extraction_status is ExtractionStatus.FAILED
+    assert row.extraction_error == pipeline.STALE_DOCUMENT_ERROR
+
+
+def _text_quote(seats: int, extra: str = "") -> tuple[pipeline.IngestCommand, FakeExtractor]:
+    result = empty_result().model_copy(
+        update={
+            "fields": [
+                scalar("operator_name", "Restore Jets", 90),
+                scalar("headline_price", {"amount_minor": 1_000_000, "currency": "USD"}),
+                scalar("seats", seats),
+            ]
+        }
+    )
+    text = f"Restore Jets\nheadline_price: 10000\nseats: {seats}\n{extra}"
+    return pipeline.IngestCommand(text=text), FakeExtractor(result=result)
+
+
+def test_moving_a_document_restores_the_superseded_value_and_withdraws_empty_quotes(
+    db: Session, ctx: RequestContext, trip: Trip, settings: Settings, storage: LocalStorage
+) -> None:
+    first_cmd, first_ex = _text_quote(8)
+    first = ingest(db, ctx, trip, first_cmd, settings, storage, first_ex)
+    assert first.quote is not None
+    quote_id = first.quote.id
+    second_cmd, second_ex = _text_quote(10, "update")
+    second_cmd = dataclasses.replace(second_cmd, quote_id=quote_id)
+    second = ingest(db, ctx, trip, second_cmd, settings, storage, second_ex)
+    assert second.quote is not None and second.quote.id == quote_id
+
+    def current_seats() -> list[QuoteField]:
+        return list(
+            db.scalars(
+                select(QuoteField).where(
+                    QuoteField.quote_id == quote_id,
+                    QuoteField.key == "seats",
+                    QuoteField.is_current.is_(True),
+                )
+            )
+        )
+
+    [newest] = current_seats()
+    assert newest.current_value == 10 and newest.source_document_id == second.document.id
+
+    other = factories.make_operator(db, ctx.workspace, "Other Jets")
+    pipeline.move_document(
+        db, ctx, second.document, quote_id=None, operator_id=other.id, settings=settings
+    )
+    [restored] = current_seats()
+    assert restored.current_value == 8 and restored.source_document_id == first.document.id
+    assert restored.superseded_by_id is None
+    quote = db.get(Quote, quote_id)
+    assert quote is not None and quote.status.value == "active" and quote.seats == 8
+
+    pipeline.move_document(
+        db, ctx, first.document, quote_id=None, operator_id=other.id, settings=settings
+    )
+    db.refresh(quote)
+    assert quote.status.value == "withdrawn"
+    assert db.scalars(select(QuoteField).where(QuoteField.quote_id == quote_id)).all() == []

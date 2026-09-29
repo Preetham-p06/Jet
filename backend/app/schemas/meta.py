@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Final, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.enums import (
     AircraftCategory,
@@ -121,6 +121,7 @@ class VocabularyOut(BaseModel):
     trip_operator_statuses: list[TripOperatorStatus]
     proposal_statuses: list[ProposalStatus]
     roles: list[Role]
+    max_upload_mb: int = Field(description="Largest file the ingest endpoint accepts (MB)")
 
 
 class AirportOut(BaseModel):

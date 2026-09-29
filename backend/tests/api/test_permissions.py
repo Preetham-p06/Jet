@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.models.enums import Role
 from tests.api.routes import api_routes
-from tests.conftest import WEB_HEADERS, ClientFactory
+from tests.conftest import WEB_HEADERS, ClientFactory, TwoWorkspaces
 
 V = "/api/v1"
 A, B, S = Role.ADMIN, Role.BROKER, Role.ASSISTANT
@@ -206,3 +206,22 @@ def test_capabilities_follow_the_role(
 ) -> None:
     caps = client_as(role).get(f"{V}/auth/me").json()["capabilities"]
     assert (capability in caps) is has
+
+
+@pytest.mark.parametrize("status", ["booked", "proposed", "cancelled"])
+def test_assistant_cannot_set_proposal_statuses_via_patch(
+    two_workspaces: TwoWorkspaces, status: str
+) -> None:
+    a = two_workspaces.a
+    res = a.assistant.patch(f"{V}/trips/{a.trip.id}", json={"status": status})
+    assert res.status_code == 403, res.text
+    assert res.json()["code"] == "forbidden"
+    assert a.assistant.get(f"{V}/trips/{a.trip.id}").json()["status"] != status
+    assert a.broker.patch(f"{V}/trips/{a.trip.id}", json={"status": status}).status_code == 200
+
+
+def test_assistant_can_still_edit_trips_and_other_statuses(two_workspaces: TwoWorkspaces) -> None:
+    a = two_workspaces.a
+    res = a.assistant.patch(f"{V}/trips/{a.trip.id}", json={"status": "sourcing", "pax": 5})
+    assert res.status_code == 200, res.text
+    assert (res.json()["status"], res.json()["pax"]) == ("sourcing", 5)

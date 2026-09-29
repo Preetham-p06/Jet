@@ -15,14 +15,14 @@ from sqlalchemy.orm import Session
 from app.api.params import PageParams
 from app.api.routes._views import recommendation
 from app.deps import Admin, AnyUser, DbSession
-from app.errors import Conflict, Unprocessable
+from app.errors import Conflict, Forbidden, Unprocessable
 from app.models.document import ProcessingEvent, SourceDocument
 from app.models.enums import FlagStatus, QuoteStatus, TripOperatorStatus, TripStatus
 from app.models.flag import Flag
 from app.models.operator import Operator
 from app.models.quote import Quote
 from app.models.trip import Trip, TripLeg, TripOperator
-from app.permissions import RequestContext, get_owned, scoped
+from app.permissions import Capability, RequestContext, get_owned, scoped
 from app.schemas.common import Page
 from app.schemas.recommendation import RecommendationOut
 from app.schemas.trip import (
@@ -51,6 +51,8 @@ _AUDITED = (
     "preferences",
     "notes",
 )
+#: Set by the proposal flow; through PATCH only roles that manage proposals may.
+_PROPOSAL_STATUSES = frozenset({TripStatus.PROPOSED, TripStatus.BOOKED, TripStatus.CANCELLED})
 _LEG_AUDITED = ("seq", "origin_icao", "destination_icao", "depart_local", "depart_tz")
 _AUTO_REF = re.compile(r"^JS(\d+)$")
 
@@ -262,6 +264,12 @@ def get_trip(trip_id: uuid.UUID, ctx: AnyUser, db: DbSession) -> TripOut:
 @router.patch("/{trip_id}", summary="Update a trip (recomputes its quotes)")
 def update_trip(trip_id: uuid.UUID, body: TripPatch, ctx: AnyUser, db: DbSession) -> TripOut:
     trip = get_owned(db, Trip, trip_id, ctx)
+    if (
+        body.status in _PROPOSAL_STATUSES
+        and body.status is not trip.status
+        and not ctx.can(Capability.PROPOSAL_MANAGE)
+    ):
+        raise Forbidden(f"Only brokers and admins can mark a trip {body.status.value}")
     before = audit.snapshot(trip, _AUDITED)
     before_legs = [audit.snapshot(leg, _LEG_AUDITED) for leg in trip.legs]
     changes = body.model_dump(exclude_unset=True, exclude={"legs", "preferences", "client_email"})

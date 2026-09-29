@@ -1,0 +1,19 @@
+{
+  "currency": "CHF",
+  "intent": "quote",
+  "fields": {
+    "currency": "CHF",
+    "headline_price": "12500.00",
+    "stated_total": "12850.00",
+    "seats": 6,
+    "departure_airport": "LSZH",
+    "arrival_airport": "LSGG",
+    "operator_name": "Helvetic Private Jets"
+  },
+  "fees": {
+    "catering": {
+      "status": "stated",
+      "amount": "350.00"
+    }
+  }
+}

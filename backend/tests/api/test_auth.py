@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
+from fastapi import Request
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.deps import client_ip
 from app.models import User
 from app.models.enums import Role
+from app.security.ratelimit import InMemoryRateLimiter
 from app.security.tokens import create_access_token
 from tests import factories
 from tests.conftest import WEB_HEADERS, ClientFactory
@@ -103,6 +107,85 @@ def test_login_is_rate_limited(client: TestClient, settings: Settings) -> None:
     assert codes == [401, 401, 401, 429]
     last = client.post(f"{V}/auth/login", json=body, headers=WEB_HEADERS)
     assert int(last.headers["retry-after"]) > 0
+
+
+def _login(app: Any, email: str, password: str, ip: str, via: str = "127.0.0.1") -> Any:
+    """A login through a proxy at `via` for a client at `ip`."""
+    c = TestClient(app, headers={**WEB_HEADERS, "X-Forwarded-For": ip}, client=(via, 1234))
+    return c.post(f"{V}/auth/login", json={"email": email, "password": password})
+
+
+def test_client_ip_trusts_forwarded_for_only_from_trusted_proxies(settings: Settings) -> None:
+    def ip(peer: str, xff: str | None) -> str | None:
+        headers = [(b"x-forwarded-for", xff.encode())] if xff is not None else []
+        scope = {"type": "http", "client": (peer, 1), "headers": headers, "app": None}
+        request = Request(scope)
+        return client_ip(request, settings)
+
+    assert ip("127.0.0.1", "203.0.113.9") == "203.0.113.9"
+    assert ip("::1", "203.0.113.9") == "203.0.113.9"
+    assert ip("127.0.0.1", "198.51.100.1, 203.0.113.9") == "203.0.113.9"  # rightmost untrusted
+    assert ip("127.0.0.1", "203.0.113.9, 127.0.0.1") == "203.0.113.9"
+    assert ip("127.0.0.1", "garbage") == "127.0.0.1"
+    assert ip("127.0.0.1", None) == "127.0.0.1"
+    assert ip("198.51.100.7", "203.0.113.9") == "198.51.100.7"  # spoofed: peer not trusted
+    settings.trusted_proxies = ["10.0.0.0/8"]
+    assert ip("10.1.2.3", "203.0.113.9") == "203.0.113.9"
+    assert ip("127.0.0.1", "203.0.113.9") == "127.0.0.1"
+
+
+def test_attacker_behind_the_proxy_cannot_lock_out_the_victim(
+    app: Any, db: Session, workspace: Any, settings: Settings
+) -> None:
+    factories.make_user(db, workspace, Role.BROKER, email="victim@example.com")
+    db.commit()
+    clock = [0.0]
+    app.state.rate_limiter = InMemoryRateLimiter(clock=lambda: clock[0])
+    codes = [
+        _login(app, "victim@example.com", "wrong-password", "203.0.113.66").status_code
+        for _ in range(12)
+    ]
+    assert codes[:5] == [401] * 5 and 429 in codes  # the attacker is slowed down
+    # The victim, behind the same proxy, is delayed by a short backoff at most.
+    victim = _login(app, "victim@example.com", factories.DEFAULT_PASSWORD, "198.51.100.5")
+    if victim.status_code == 429:
+        wait = int(victim.headers["retry-after"])
+        assert 0 < wait <= settings.login_backoff_max_s
+        clock[0] += wait
+        victim = _login(app, "victim@example.com", factories.DEFAULT_PASSWORD, "198.51.100.5")
+    assert victim.status_code == 200, victim.text
+
+
+def test_login_rate_limit_is_per_client_ip(app: Any, settings: Settings) -> None:
+    settings.login_rate_limit = 3
+    codes = [
+        _login(app, f"u{i}@example.com", "wrong-password", "203.0.113.66").status_code
+        for i in range(4)
+    ]
+    assert codes == [401, 401, 401, 429]
+    other = _login(app, "u9@example.com", "wrong-password", "198.51.100.5")
+    assert other.status_code == 401
+
+
+def test_logout_revokes_the_session_token(app: Any, db: Session, workspace: Any) -> None:
+    factories.make_user(db, workspace, Role.BROKER, email="leaver@example.com")
+    db.commit()
+    browser = TestClient(app, headers=WEB_HEADERS)
+    res = browser.post(
+        f"{V}/auth/login",
+        json={"email": "leaver@example.com", "password": factories.DEFAULT_PASSWORD},
+    )
+    assert res.status_code == 200
+    stolen = browser.cookies.get("js_session")
+    other_device = TestClient(app).post(
+        f"{V}/auth/token",
+        data={"username": "leaver@example.com", "password": factories.DEFAULT_PASSWORD},
+    )
+    other_token = other_device.json()["access_token"]
+    assert browser.post(f"{V}/auth/logout").status_code == 204
+    for token in (stolen, other_token):  # logout ends every session of the user
+        res = TestClient(app).get(f"{V}/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert res.status_code == 401
 
 
 def test_bearer_token_from_the_password_flow(client: TestClient) -> None:

@@ -1,5 +1,6 @@
-"""Money parsing: `$41,800.00`, `USD 41,800`, `41.8k`, `€32.500,00`, `C$`, `£`, `CHF`,
-percentages (`7.5%`) and rates (`$4,950/hr x 3.2 hrs`)."""
+"""Money parsing: `$41,800.00`, `USD 41,800`, `41.8k`, `$1.2M`, `€32.500,00`,
+`32 500,00 €`, `CHF 12'500`, `C$`, `£`, percentages (`7.5%`) and rates
+(`$4,950/hr x 3.2 hrs`)."""
 
 from __future__ import annotations
 
@@ -36,12 +37,21 @@ SYMBOLS: Final[dict[str, str]] = {
 }
 CODES: Final = ("USD", "EUR", "GBP", "CAD", "CHF", "AUD")
 
-_NUMBER: Final = r"\d{1,3}(?:[,.]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?"
+#: Thousands separators: comma, dot, apostrophe (Swiss) and the spaces used in
+#: French/German/Nordic grouping (plain, no-break, thin, narrow no-break).
+_SPACES: Final = " \u00a0\u2009\u202f"
+_GROUP_SEP: Final = rf"[,.'\u2019{_SPACES}]"
+# One separator throughout (backreference), so "41,800 200" is two numbers.
+_NUMBER: Final = (
+    rf"\d{{1,3}}(?P<gsep>{_GROUP_SEP})\d{{3}}(?:(?P=gsep)\d{{3}})*(?!\d)(?:[.,]\d{{1,2}})?"
+    r"|\d+(?:[.,]\d{1,2})?"
+)
 _PREFIX: Final = (
     r"(?P<prefix>US\$|CA\$|C\$|A\$|\$|€|£|(?<![A-Za-z])(?:USD|EUR|GBP|CAD|CHF|AUD)(?![A-Za-z]))"
 )
 _SUFFIX: Final = r"(?P<suffix>€|£|(?<![A-Za-z])(?:USD|EUR|GBP|CAD|CHF|AUD)(?![A-Za-z]))"
-_K: Final = r"(?P<k>\s?[kK](?![A-Za-z]))"
+# `k` thousands, `M` millions (millions only next to a written currency).
+_K: Final = r"(?P<k>\s?[kKmM](?![A-Za-z]))"
 _PER_HOUR: Final = (
     r"(?P<hour>\s*(?:/\s*(?:hr|hour|h)\b|per\s+(?:flight\s+|block\s+)?hour\b|an\s+hour\b))"
 )
@@ -68,11 +78,14 @@ _YEAR: Final = re.compile(r"^(?:19|20)\d\d$")
 
 
 def parse_amount(text: str) -> Decimal | None:
-    """Parse one number in US or EU grouping, with `k` shorthand."""
-    raw = text.strip().replace(" ", "")
+    """Parse one number in US, EU, Swiss or space grouping, with `k` / `M` shorthand."""
+    raw = re.sub(rf"[{_SPACES}'\u2019]", "", text.strip())
     multiplier = Decimal(1)
     if raw[-1:] in ("k", "K"):
         multiplier = Decimal(1000)
+        raw = raw[:-1]
+    elif raw[-1:] in ("m", "M"):
+        multiplier = Decimal(1_000_000)
         raw = raw[:-1]
     if not raw or not re.fullmatch(r"[\d.,]+", raw) or not raw[0].isdigit():
         return None
@@ -121,11 +134,17 @@ def find_money(
     for m in MONEY_RE.finditer(text):
         num = m.group("num")
         k = m.group("k")
-        amount = parse_amount(num + ("k" if k else ""))
+        amount = parse_amount(num + (k.strip() if k else ""))
         if amount is None:
             continue
         currency = _currency_of(m.group("prefix")) or _currency_of(m.group("suffix"))
         explicit = currency is not None
+        if not explicit and (
+            (k and k.strip() in ("m", "M")) or (m.group("gsep") or "x") in _SPACES
+        ):
+            # "58m" is minutes and "3 100" may be two numbers: without a written
+            # currency, neither a million nor space grouping is money.
+            continue
         end = m.end()
         # Trim trailing whitespace captured by optional groups.
         while end > m.start() and text[end - 1].isspace():

@@ -50,7 +50,7 @@ ATLAS_PDF: tuple[Page, ...] = (
         "Fuel surcharge …………………… $1,400.00",
         "Federal excise tax (7.5%) and segment fees included in charter price.",
         "Total …………………………… $44,820.00",
-        "Quote valid until 10 Oct 2026. Payment by wire transfer prior to departure.",
+        "Quote valid until 17 Oct 2026. Payment by wire transfer prior to departure.",
     ),
 )
 

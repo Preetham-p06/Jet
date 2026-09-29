@@ -100,6 +100,39 @@ def test_prod_settings_reject_default_secret() -> None:
         Settings(_env_file=None, env="prod", secret_key="short")  # type: ignore[call-arg]
 
 
+def test_prod_settings_require_secure_cookies() -> None:
+    key = "k" * 40
+    with pytest.raises(ValueError, match="COOKIE_SECURE"):
+        Settings(_env_file=None, env="prod", secret_key=key)  # type: ignore[call-arg]
+    ok = Settings(_env_file=None, env="prod", secret_key=key, cookie_secure=True)  # type: ignore[call-arg]
+    assert ok.cookie_secure
+
+
+def test_trusted_proxies_parse_from_a_comma_separated_string() -> None:
+    s = Settings(_env_file=None, trusted_proxies="10.0.0.0/8, 127.0.0.1")  # type: ignore[call-arg]
+    assert s.trusted_proxies == ["10.0.0.0/8", "127.0.0.1"]
+    assert Settings(_env_file=None).trusted_proxies == ["127.0.0.1", "::1"]  # type: ignore[call-arg]
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, trusted_proxies="not-an-ip")  # type: ignore[call-arg]
+
+
+def test_login_backoff_is_short_and_cleared_on_success() -> None:
+    clock = [0.0]
+    limiter = InMemoryRateLimiter(clock=lambda: clock[0])
+    for _ in range(5):
+        assert limiter.backoff_s("a", free_failures=5, max_backoff_s=30) == 0
+        limiter.record_failure("a")
+    assert limiter.backoff_s("a", free_failures=5, max_backoff_s=30) == 1
+    for _ in range(20):
+        limiter.record_failure("a")
+    assert limiter.backoff_s("a", free_failures=5, max_backoff_s=30) == 30
+    clock[0] = 30.0
+    assert limiter.backoff_s("a", free_failures=5, max_backoff_s=30) == 0
+    limiter.reset("a")
+    limiter.record_failure("a")
+    assert limiter.backoff_s("a", free_failures=5, max_backoff_s=30) == 0
+
+
 def test_quote_field_version_and_lock_constraint(db: Session) -> None:
     ws = factories.make_workspace(db)
     trip = factories.make_trip(db, ws)

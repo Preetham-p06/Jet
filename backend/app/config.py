@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
@@ -56,6 +57,9 @@ class Settings(BaseSettings):
     storage_dir: Path = Path("./storage")
     max_upload_mb: int = Field(default=15, ge=1)
     max_pdf_pages: int = Field(default=50, ge=1)
+    # Email uploads: PDF attachments processed per email, and their total pages.
+    max_attachments: int = Field(default=10, ge=0)
+    max_total_pages: int = Field(default=200, ge=1)
 
     # Extraction
     extractor: ExtractorChoice = ExtractorChoice.AUTO
@@ -69,6 +73,9 @@ class Settings(BaseSettings):
 
     # Pipeline and product behaviour
     pipeline_mode: PipelineMode = PipelineMode.INLINE
+    # At startup, pending/processing documents idle this long are marked failed
+    # (a restart drops queued background work) so they can be reprocessed.
+    stale_document_minutes: int = Field(default=15, ge=1)
     public_app_url: str = "http://localhost:3001"
     default_review_threshold: int = Field(default=75, ge=50, le=100)
     share_link_ttl_days: int = Field(default=30, ge=1)
@@ -78,6 +85,17 @@ class Settings(BaseSettings):
     login_rate_window_s: int = Field(default=60, ge=1)
     public_rate_limit: int = Field(default=60, ge=1)
     public_rate_window_s: int = Field(default=60, ge=1)
+    # Per account: after this many failed logins, each attempt waits a backoff
+    # that doubles from 1 s up to `login_backoff_max_s` (short, so an attacker
+    # cannot lock the owner out). A successful login clears it.
+    login_backoff_after: int = Field(default=5, ge=1)
+    login_backoff_max_s: int = Field(default=30, ge=1)
+
+    # Proxies (IPs or CIDRs) whose X-Forwarded-For is believed when they are the
+    # direct peer; the client IP keys rate limits and audit entries.
+    trusted_proxies: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["127.0.0.1", "::1"]
+    )
 
     # Comma-separated in the environment; empty disables CORS entirely.
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
@@ -86,11 +104,20 @@ class Settings(BaseSettings):
     @classmethod
     def _split_cors(cls, data: object) -> object:
         if isinstance(data, dict):
-            for key in ("cors_origins", "CORS_ORIGINS"):
+            for key in ("cors_origins", "CORS_ORIGINS", "trusted_proxies", "TRUSTED_PROXIES"):
                 raw = data.get(key)
                 if isinstance(raw, str):
                     data[key] = [o.strip() for o in raw.split(",") if o.strip()]
         return data
+
+    @model_validator(mode="after")
+    def _check_trusted_proxies(self) -> Settings:
+        for entry in self.trusted_proxies:
+            try:
+                ipaddress.ip_network(entry, strict=False)
+            except ValueError:
+                raise ValueError(f"TRUSTED_PROXIES: {entry!r} is not an IP or CIDR") from None
+        return self
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> Settings:
@@ -101,6 +128,8 @@ class Settings(BaseSettings):
                     "SECRET_KEY must be set to a unique value of at least "
                     f"{MIN_PROD_SECRET_LENGTH} characters in prod"
                 )
+            if not self.cookie_secure:
+                raise ValueError("COOKIE_SECURE must be true in prod")
         return self
 
     @property

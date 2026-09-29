@@ -25,7 +25,7 @@ from tests.conftest import WEB_HEADERS
 pytestmark = pytest.mark.integration
 
 V = "/api/v1"
-# Atlas's quote is valid until 2026-10-10; later, `quote_expired` drops it.
+# Atlas's quote is valid until 2026-10-17; later, `quote_expired` drops it.
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 DEMO = Path(__file__).resolve().parents[2] / "fixtures" / "demo"
 MANIFEST = json.loads((DEMO / "manifest.json").read_text())

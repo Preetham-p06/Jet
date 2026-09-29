@@ -28,7 +28,7 @@ from app.services import merge, pipeline, recompute, review
 from app.services.storage import LocalStorage
 from tests import factories
 from tests.factories_p5 import make_ctx
-from tests.fakes import empty_result, fee
+from tests.fakes import FakeExtractor, empty_result, fee, scalar
 
 pytestmark = pytest.mark.integration
 
@@ -369,3 +369,50 @@ def test_review_queue_lists_fields_and_blocking_flags_by_money(env: Env) -> None
     review.accept_field(env.db, env.ctx, fuel_field, version=fuel_field.version, note=None)
     after = review.review_queue(env.db, env.ctx, env.trip)
     assert not [i for i in after if i.field is not None and i.field.key == "fee.fuel_surcharge"]
+
+
+def test_hourly_estimate_confirmed_amount_writes_the_headline(env: Env) -> None:
+    fake = FakeExtractor(
+        result=empty_result().model_copy(
+            update={
+                "fields": [
+                    scalar("operator_name", "Hourly Jets", 90),
+                    scalar("hourly_rate", {"amount_minor": 500_000, "currency": "USD"}),
+                    scalar("daily_minimum_hours", 2.0),
+                    scalar("flight_time_minutes", 180),
+                ],
+                "fees": [
+                    fee(FeeCategory.FET, "included", confidence=95),
+                    fee(FeeCategory.SEGMENT_FEES, "included", confidence=95),
+                ],
+            }
+        )
+    )
+    out = pipeline.ingest(
+        env.db,
+        env.ctx,
+        env.trip,
+        pipeline.IngestCommand(text="Hourly Jets: $5,000/hr, 2 hr daily minimum, 3h flight"),
+        settings=env.settings,
+        storage=env.storage,
+        extractor=fake,
+    )
+    quote = out.quote
+    assert quote is not None
+    assert quote.headline_cents == 1_500_000 and not quote.is_fully_priced
+    flag = env.flag(quote, "hourly_estimate")
+    assert flag.type is FlagType.HOURLY_ESTIMATE and flag.status is FlagStatus.OPEN
+    review.resolve_flag(
+        env.db,
+        env.ctx,
+        flag,
+        resolution=FlagResolution.CONFIRMED_AMOUNT,
+        amount_cents=1_620_000,
+        note="operator confirmed",
+    )
+    headline = env.field(quote, "headline_price")
+    assert headline.extractor is ExtractorKind.MANUAL
+    assert headline.current_value == {"amount_minor": 1_620_000, "currency": "USD"}
+    assert quote.headline_cents == 1_620_000
+    assert quote.known_total_cents == 1_620_000
+    assert flag.status is FlagStatus.RESOLVED

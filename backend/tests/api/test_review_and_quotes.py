@@ -12,16 +12,19 @@ import pytest
 import time_machine
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
+from app.db import set_workspace
 from app.extraction.registry import select_extractor
+from app.models import QuoteField
 from app.models.enums import Role
+from app.services import review
 from tests import factories
 from tests.conftest import ClientFactory
 
 V = "/api/v1"
-# Atlas's quote is valid until 2026-10-10; later, `quote_expired` drops it.
+# Atlas's quote is valid until 2026-10-17; later, `quote_expired` drops it.
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 DEMO = Path(__file__).resolve().parents[2] / "fixtures" / "demo"
 FILES = [
@@ -121,6 +124,35 @@ def test_edit_reset_and_stale_versions(demo: dict[str, Any]) -> None:
         f"{V}/fields/{seats['id']}/verify", json={"version": reset.json()["version"]}
     )
     assert denied.status_code == 403
+
+
+def test_concurrent_write_race_returns_stale_version(
+    demo: dict[str, Any],
+    app: FastAPI,
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A second session commits between the version check and the flush: the
+    UPDATE matches no row, SQLAlchemy raises StaleDataError, the API says 409."""
+    broker: TestClient = demo["broker"]
+    seats = _field(broker, demo["atlas"], "seats")
+    original = review.verify_field
+
+    def racing_verify(db: Session, ctx: Any, field: QuoteField, **kw: Any) -> QuoteField:
+        with session_factory() as other:
+            set_workspace(other, field.workspace_id)
+            row = other.get(QuoteField, field.id)
+            assert row is not None
+            row.review_note = "edited elsewhere"
+            other.commit()
+        return original(db, ctx, field, **kw)
+
+    monkeypatch.setattr(review, "verify_field", racing_verify)
+    res = broker.post(f"{V}/fields/{seats['id']}/verify", json={"version": seats["version"]})
+    assert res.status_code == 409, res.text
+    assert res.json()["code"] == "stale_version"
+    after = _field(broker, demo["atlas"], "seats")
+    assert after["version"] == seats["version"] + 1 and after["status"] == "extracted"
 
 
 def test_resolve_and_reopen_the_fuel_flag(demo: dict[str, Any]) -> None:

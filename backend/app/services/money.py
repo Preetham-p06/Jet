@@ -54,9 +54,16 @@ def percent_of(base_cents: int, percent: Decimal) -> int:
 
 
 def apply_markup(cost_basis_cents: int, markup_pct: Decimal) -> int:
-    """Client total in cents, rounded half-up to whole dollars (spec §6)."""
+    """Client total in cents, rounded half-up to whole dollars (spec §6).
+
+    Never below the cost basis: when half-up rounding would undercut it, the
+    total rounds up to the next whole dollar instead.
+    """
     dollars = cents_to_dollars(cost_basis_cents) * (ONE + markup_pct / HUNDRED)
-    return to_int_half_up(dollars) * 100
+    total = to_int_half_up(dollars) * 100
+    if total < cost_basis_cents:
+        total = -(-cost_basis_cents // 100) * 100
+    return total
 
 
 def format_usd(cents: int, *, show_cents: bool = False) -> str:

@@ -1,0 +1,21 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Harbor Jet Group",
+    "headline_price": "38750.00",
+    "aircraft_model": "Cessna Citation Latitude",
+    "seats": 9
+  },
+  "fees": {
+    "ramp_handling": {
+      "status": "waived",
+      "amount": null
+    },
+    "fet": {
+      "status": "stated",
+      "amount": "2906.25"
+    }
+  },
+  "known_total": "41656.25"
+}

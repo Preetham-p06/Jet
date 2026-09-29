@@ -213,7 +213,11 @@ def recommendation_eligibility(inp: ScoreInput, trip: TripContext) -> Eligibilit
                 f"{n} open blocking flag{'s' if n != 1 else ''}",
             )
         )
-    if inp.seats is not None and inp.seats < trip.pax:
+    if inp.seats is None:
+        reasons.append(
+            EligibilityReason(IneligibilityCode.INSUFFICIENT_CAPACITY, "Seat count unknown")
+        )
+    elif inp.seats < trip.pax:
         reasons.append(
             EligibilityReason(
                 IneligibilityCode.INSUFFICIENT_CAPACITY,

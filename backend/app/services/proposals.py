@@ -630,16 +630,32 @@ def revise(db: Session, ctx: RequestContext, proposal: Proposal, *, now: datetim
 # --------------------------------------------------------------------------- snapshots
 
 
+def _key(text: str) -> str:
+    """Case- and punctuation-free form used to compare words."""
+    return _TOKEN_SPLIT.sub("", text).casefold()
+
+
 def _operator_tokens(operator: Operator | None) -> set[str]:
+    """Keys of the operator's name and aliases: each word, and each whole name
+    ("Wheels Up" -> {"wheels", "up", "wheelsup"})."""
     if operator is None:
         return set()
     names = [operator.name, *(operator.aliases or [])]
-    return {
+    tokens = {
         t.casefold()
         for name in names
         for t in _TOKEN_SPLIT.split(name)
         if len(t) >= 2 and not t.isdigit()
     }
+    return tokens | {k for name in names if (k := _key(name))}
+
+
+# Registration marks: US N-numbers ("N684AC", "N-684AC") and ICAO-style marks
+# with a letter suffix ("G-LXRY", "VP-CXX").
+_REGISTRATION = re.compile(r"N-?[1-9][0-9]{0,4}[A-Z]{0,2}|[A-Z]{1,2}-[A-Z]{3,4}", re.IGNORECASE)
+# Free text after one of these is commentary ("- Wheels Up fleet", "(N684AC)").
+_MODEL_COMMENTARY = re.compile(r"\s[-\u2013\u2014|/]\s|[(\[{,;]")
+_HYPHEN_IN_WORD = re.compile(r"(?<=[A-Za-z0-9])-(?=[A-Za-z0-9])")
 
 
 def client_aircraft_label(
@@ -649,16 +665,29 @@ def client_aircraft_label(
     tail_number: str | None = None,
     category_label: str | None = None,
 ) -> str:
-    """Client-facing aircraft name: the canonical dictionary model, else the
-    extracted text with operator-name tokens (and the tail number) removed."""
+    """Client-facing aircraft name, which must never name the operator or the tail.
+
+    The canonical dictionary model when the text matches one (also with in-word
+    hyphens dropped: "G-IV SP" -> "GIV SP"). Otherwise the text up to any
+    commentary, without words that match the operator's name (compared without
+    case and punctuation), the tail number or any registration mark. Falls back
+    to the category label.
+    """
     if model:
-        canonical = _canonical_model(model)
+        canonical = _canonical_model(model) or _canonical_model(_HYPHEN_IN_WORD.sub("", model))
         if canonical:
             return canonical
         banned = _operator_tokens(operator)
-        if tail_number:
-            banned.add(tail_number.casefold())
-        words = [w for w in model.split() if w.strip(".,;:()[]'\"-").casefold() not in banned and w]
+        if tail_number and (tail := _key(tail_number)):
+            banned.add(tail)
+        head = _MODEL_COMMENTARY.split(model, maxsplit=1)[0]
+        words = [
+            w
+            for w in head.split()
+            if (k := _key(w))
+            and k not in banned
+            and not _REGISTRATION.fullmatch(w.strip(".,;:()[]'\"-"))
+        ]
         label = " ".join(words).strip(" .,;:-/")
         if label:
             return label

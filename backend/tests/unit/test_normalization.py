@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from decimal import Decimal
+from types import MappingProxyType
 
 import pytest
 from hypothesis import given, settings
@@ -174,6 +175,46 @@ def test_percent_fet_on_base_excluding_taxes() -> None:
     assert tc.known_total_cents == 1_100_000 + 3_710 + 82_500
 
 
+def test_percent_fet_upper_includes_unaccepted_estimates() -> None:
+    fet = line(F.FET, A.STATED, unit=FeeUnit.PERCENT, percent=Decimal("7.5"))
+    fuel = line(F.FUEL_SURCHARGE, A.ESTIMATED, 100_000)
+    before = norm(state((fet, fuel)))
+    assert before.known_total_cents == 1_000_000 + 75_000
+    assert before.upper_total_cents == 1_100_000 + 82_500
+    after = norm(state((fet, replace(fuel, review_status=FieldStatus.ACCEPTED))))
+    assert after.known_total_cents == after.upper_total_cents == 1_182_500
+
+
+def test_synthetic_fet_estimate_uses_upper_base() -> None:
+    fuel = line(F.FUEL_SURCHARGE, A.ESTIMATED, 100_000)
+    s = state((fuel,))
+    before = norm(s, expected_fees(s, TRIP))
+    fet = next(ln for ln in before.lines if ln.category is F.FET)
+    assert fet.estimate_cents == 82_500
+    accepted = state((replace(fuel, review_status=FieldStatus.ACCEPTED),))
+    after = norm(accepted, expected_fees(accepted, TRIP))
+    assert after.upper_total_cents == before.upper_total_cents
+
+
+def test_not_stated_fet_estimate_uses_normalized_lines() -> None:
+    trip2 = make_trip(legs=(TRIP.legs[0], replace(TRIP.legs[0], seq=2)))
+    fees = (
+        line(F.LANDING, A.STATED, 50_000, unit=FeeUnit.PER_LEG),
+        line(F.FET, A.NOT_STATED),
+    )
+    tc = normalize_quote(state(fees), trip2, FX, [])
+    fet = next(ln for ln in tc.lines if ln.category is F.FET)
+    assert (fet.estimate_cents, fet.estimate_basis) == (82_500, "rule:fet")  # 7.5 % of 1.1 M
+
+
+def test_not_stated_fet_estimate_uses_the_given_fx_table() -> None:
+    fx = replace(FX, rates=MappingProxyType({**FX.rates, "EUR": Decimal("2")}))
+    tc = normalize_quote(state((line(F.FET, A.NOT_STATED),), currency="EUR"), TRIP, fx, [])
+    fet = next(ln for ln in tc.lines if ln.category is F.FET)
+    assert tc.headline_cents == 2_000_000
+    assert fet.estimate_cents == 150_000
+
+
 # --------------------------------------------------------------------------- all in, expected
 
 
@@ -235,6 +276,45 @@ def test_hourly_headline_from_flight_time_is_estimated() -> None:
     )
     tc = norm(s)
     assert tc.headline_cents == 1_800_000  # ceil_0.1(2.97) = 3.0 h
+    assert tc.headline_estimated and not tc.is_fully_priced
+
+
+def test_hourly_daily_minimum_alone_uses_flight_time_and_is_estimated() -> None:
+    # $5,000/hr, 2 h daily minimum, 3 h flight, no billable hours stated.
+    s = state(
+        headline=None,
+        pricing_basis=PricingBasis.HOURLY,
+        hourly_rate_minor=500_000,
+        daily_minimum_hours=Decimal("2"),
+        flight_time_minutes=180,
+    )
+    tc = norm(s)
+    assert tc.headline_cents == 1_500_000  # max(2, 3.0) h
+    assert tc.headline_estimated and not tc.is_fully_priced
+
+
+def test_hourly_daily_minimum_floors_short_flight() -> None:
+    s = state(
+        headline=None,
+        pricing_basis=PricingBasis.HOURLY,
+        hourly_rate_minor=500_000,
+        daily_minimum_hours=Decimal("2"),
+        flight_time_minutes=61,
+    )
+    tc = norm(s)
+    assert tc.headline_cents == 1_000_000  # max(2, 1.1) h
+    assert tc.headline_estimated
+
+
+def test_hourly_daily_minimum_without_flight_time_is_estimated() -> None:
+    s = state(
+        headline=None,
+        pricing_basis=PricingBasis.HOURLY,
+        hourly_rate_minor=500_000,
+        daily_minimum_hours=Decimal("2"),
+    )
+    tc = norm(s)
+    assert tc.headline_cents == 1_000_000
     assert tc.headline_estimated and not tc.is_fully_priced
 
 
@@ -372,6 +452,41 @@ def test_property_extra_line_raises_both_totals(s: QuoteState, amount: int) -> N
     after = norm(replace(s, fees=(*s.fees, extra)))
     assert after.known_total_cents == (before.known_total_cents or 0) + amount
     assert after.upper_total_cents == (before.upper_total_cents or 0) + amount
+
+
+_estimate_statuses = st.sampled_from([A.ESTIMATED, A.NOT_STATED])
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    _states,
+    st.booleans(),
+    st.data(),
+)
+def test_property_accepting_an_estimate_never_exceeds_old_upper(
+    s: QuoteState, percent_fet: bool, data: st.DataObject
+) -> None:
+    s = replace(s, stated_total_minor=None)
+    if percent_fet:
+        fet = line(F.FET, A.STATED, unit=FeeUnit.PERCENT, percent=Decimal("7.5"))
+        s = replace(s, fees=(*s.fees, fet))
+    candidates = [
+        i
+        for i, f in enumerate(s.fees)
+        if f.status in (A.ESTIMATED, A.NOT_STATED) and not f.is_accepted
+    ]
+    extra = line(F.FUEL_SURCHARGE, data.draw(_estimate_statuses), 100_000)
+    if not candidates:
+        s = replace(s, fees=(*s.fees, extra))
+        candidates = [len(s.fees) - 1]
+    i = data.draw(st.sampled_from(candidates))
+    before = norm(s, expected_fees(s, TRIP))
+    fees = list(s.fees)
+    fees[i] = replace(fees[i], review_status=FieldStatus.ACCEPTED)
+    accepted = replace(s, fees=tuple(fees))
+    after = norm(accepted, expected_fees(accepted, TRIP))
+    assert after.known_total_cents is not None and before.upper_total_cents is not None
+    assert after.known_total_cents <= before.upper_total_cents
 
 
 @pytest.mark.parametrize("status", [A.STATED, A.ESTIMATED, A.NOT_STATED])

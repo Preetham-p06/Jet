@@ -195,11 +195,17 @@ def evaluate_flags(
             _spec(
                 FlagType.HOURLY_ESTIMATE,
                 FlagSeverity.WARNING,
-                f"Hourly quote priced from flight time: {_money(true_cost.headline_cents)} "
-                "estimated",
+                "Hourly quote without billable hours: "
+                f"{_money(true_cost.headline_cents)} estimated from "
+                + ("flight time" if state.flight_time_minutes else "the daily minimum"),
                 details={
                     "headline_cents": true_cost.headline_cents,
                     "flight_time_minutes": state.flight_time_minutes,
+                    "daily_minimum_hours": (
+                        str(state.daily_minimum_hours)
+                        if state.daily_minimum_hours is not None
+                        else None
+                    ),
                 },
             )
         )

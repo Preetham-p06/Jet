@@ -1,0 +1,6 @@
+{
+  "description": "CHF amounts with Swiss apostrophe grouping (CHF 12'500)",
+  "demo": false,
+  "channel": "paste",
+  "input": "input.txt"
+}

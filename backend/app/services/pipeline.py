@@ -14,7 +14,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Final
 
 from sqlalchemy import select
@@ -246,6 +246,25 @@ def _attachments(
     now: datetime,
 ) -> list[SourceDocument]:
     children: list[SourceDocument] = []
+    pages = 0
+
+    def skip(message: str) -> None:
+        log_event(
+            db,
+            workspace_id=trip.workspace_id,
+            trip_id=trip.id,
+            source_document_id=parent.id,
+            step=ProcessingStep.INGEST,
+            level=EventLevel.WARN,
+            message=message,
+        )
+
+    if len(attachments) > settings.max_attachments:
+        skip(
+            f"Skipped {len(attachments) - settings.max_attachments} of {len(attachments)} "
+            f"PDF attachments: the limit is {settings.max_attachments} per email"
+        )
+        attachments = attachments[: settings.max_attachments]
     for att in attachments:
         if _existing(db, trip, sha256_hex(att.data)) is not None:
             continue
@@ -253,17 +272,16 @@ def _attachments(
             if len(att.data) > settings.max_upload_bytes:
                 raise Unprocessable("Attachment too large", code="payload_too_large")
             loaded = load_pdf(att.data, max_pages=settings.max_pdf_pages)
+            if pages + (loaded.page_count or 0) > settings.max_total_pages:
+                raise Unprocessable(
+                    f"the email's attachments are limited to {settings.max_total_pages} "
+                    "pages in total",
+                    code="too_many_pages",
+                )
         except DomainError as exc:
-            log_event(
-                db,
-                workspace_id=trip.workspace_id,
-                trip_id=trip.id,
-                source_document_id=parent.id,
-                step=ProcessingStep.INGEST,
-                level=EventLevel.WARN,
-                message=f"Skipped attachment {att.filename or 'PDF'}: {exc.detail}",
-            )
+            skip(f"Skipped attachment {att.filename or 'PDF'}: {exc.detail}")
             continue
+        pages += loaded.page_count or 0
         loaded = LoadedDocument(
             input=_with_channel(loaded.input, DocumentChannel.EMAIL),
             page_count=loaded.page_count,
@@ -941,6 +959,52 @@ def run_in_background(
             doc.extraction_error = f"Processing failed: {type(exc).__name__}"
             _log(db, doc, ProcessingStep.EXTRACT, doc.extraction_error, level=EventLevel.ERROR)
             db.commit()
+
+
+STALE_DOCUMENT_ERROR: Final = (
+    "Processing was interrupted before it finished; reprocess the document"
+)
+
+
+def fail_stale_documents(
+    session_factory: sessionmaker[Any], *, now: datetime, older_than: timedelta
+) -> int:
+    """Mark `pending`/`processing` documents untouched for `older_than` as failed.
+
+    Background work lives in the web process, so a restart drops it and leaves
+    the document stuck; failed documents can be reprocessed from the UI. Runs at
+    startup; each workspace is handled in its own scoped session.
+    """
+    cutoff = now - older_than
+    stuck = (ExtractionStatus.PENDING, ExtractionStatus.PROCESSING)
+    with session_factory() as db:  # unscoped: only reads which workspaces to visit
+        workspace_ids = db.scalars(
+            select(SourceDocument.workspace_id)
+            .where(
+                SourceDocument.extraction_status.in_(stuck),
+                SourceDocument.updated_at < cutoff,
+            )
+            .distinct()
+        ).all()
+    failed = 0
+    for workspace_id in workspace_ids:
+        with session_factory() as db:
+            set_workspace(db, workspace_id)
+            docs = db.scalars(
+                select(SourceDocument).where(
+                    SourceDocument.extraction_status.in_(stuck),
+                    SourceDocument.updated_at < cutoff,
+                )
+            ).all()
+            for doc in docs:
+                doc.extraction_status = ExtractionStatus.FAILED
+                doc.extraction_error = STALE_DOCUMENT_ERROR
+                _log(db, doc, ProcessingStep.EXTRACT, STALE_DOCUMENT_ERROR, level=EventLevel.ERROR)
+            db.commit()
+            failed += len(docs)
+    if failed:
+        log.warning("marked %d stale source document(s) as failed", failed)
+    return failed
 
 
 def reprocess_document(

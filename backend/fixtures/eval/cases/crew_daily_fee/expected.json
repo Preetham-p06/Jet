@@ -1,0 +1,18 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Keystone Aviation",
+    "headline_price": "44200.00",
+    "stated_total": "45400.00",
+    "aircraft_model": "Bombardier Challenger 350",
+    "seats": 9
+  },
+  "fees": {
+    "crew": {
+      "status": "stated",
+      "amount": "1200.00"
+    }
+  },
+  "known_total": "45400.00"
+}

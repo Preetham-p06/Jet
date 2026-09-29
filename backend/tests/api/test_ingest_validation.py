@@ -4,8 +4,12 @@ explicit targets, duplicates and the background path."""
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
+import pytest
+import starlette.formparsers as formparsers
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -58,6 +62,61 @@ def test_size_limit_and_empty_files(
     assert res.status_code == 413  # type: ignore[attr-defined]
     empty = _ingest(broker, trip_id, files={"file": ("empty.pdf", b"", "application/pdf")})
     assert empty.status_code == 422  # type: ignore[attr-defined]
+
+
+def _spy_multipart(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    seen = {"bytes": 0}
+    original = formparsers.MultiPartParser.on_part_data
+
+    def spy(self: Any, data: bytes, start: int, end: int) -> None:
+        seen["bytes"] += end - start
+        original(self, data, start, end)
+
+    monkeypatch.setattr(formparsers.MultiPartParser, "on_part_data", spy)
+    return seen
+
+
+def test_oversized_upload_is_rejected_before_the_body_is_parsed(
+    client_as: ClientFactory, db: Session, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = client_as(Role.BROKER)
+    trip_id = _trip(broker, db)
+    settings.max_upload_mb = 1
+    seen = _spy_multipart(monkeypatch)
+    big = b"%PDF-1.7\n" + b"0" * (8 * 1024 * 1024)
+    res = _ingest(broker, trip_id, files={"file": ("big.pdf", big, "application/pdf")})
+    assert res.status_code == 413  # type: ignore[attr-defined]
+    assert res.json()["code"] == "payload_too_large"  # type: ignore[attr-defined]
+    assert seen["bytes"] == 0
+
+
+def test_streamed_upload_without_length_is_capped(
+    client_as: ClientFactory, db: Session, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = client_as(Role.BROKER)
+    trip_id = _trip(broker, db)
+    settings.max_upload_mb = 1
+    seen = _spy_multipart(monkeypatch)
+    boundary = "jsboundary"
+    head = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.pdf"\r\n'
+        "Content-Type: application/pdf\r\n\r\n%PDF-1.7\n"
+    ).encode()
+
+    def body() -> Iterator[bytes]:
+        yield head
+        for _ in range(64):  # 16 MB, far beyond the 1 MB limit
+            yield b"0" * (256 * 1024)
+        yield f"\r\n--{boundary}--\r\n".encode()
+
+    res = broker.post(
+        f"{V}/trips/{trip_id}/quotes/ingest",
+        content=body(),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    assert res.status_code == 413, res.text
+    assert res.json()["code"] == "payload_too_large"
+    assert seen["bytes"] < 3 * 1024 * 1024
 
 
 def test_rejects_unknown_targets_and_bad_metadata(client_as: ClientFactory, db: Session) -> None:

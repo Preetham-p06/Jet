@@ -1,0 +1,6 @@
+{
+  "description": "Crew daily fee as its own line",
+  "demo": false,
+  "channel": "paste",
+  "input": "input.txt"
+}

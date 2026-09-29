@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.config import Settings
 from app.models.enums import Role
 from app.services.storage import LocalStorage
 from tests import factories
@@ -143,6 +144,15 @@ def test_documents_flags_and_quotes_reads(
     detail = a.admin.get(f"/api/v1/quotes/{quote.id}")
     assert detail.status_code == 200
     assert detail.json()["sources"][0]["original_filename"] == "atlas_quote_01.pdf"
+
+
+def test_meta_vocabulary_exposes_the_upload_limit(
+    client_as: ClientFactory, settings: Settings
+) -> None:
+    assistant = client_as(Role.ASSISTANT)
+    assert assistant.get("/api/v1/meta/vocabulary").json()["max_upload_mb"] == 15
+    settings.max_upload_mb = 7
+    assert assistant.get("/api/v1/meta/vocabulary").json()["max_upload_mb"] == 7
 
 
 def test_meta_vocabulary_and_not_implemented(client_as: ClientFactory) -> None:

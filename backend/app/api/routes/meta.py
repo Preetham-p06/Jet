@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from app.deps import AnyUser
+from app.deps import AnyUser, AppSettings
 from app.models.enums import (
     FEE_CATEGORY_ORDER,
     FLAG_RESOLUTIONS,
@@ -39,8 +39,11 @@ from app.services import airports
 router = APIRouter(prefix="/meta", tags=["meta"])
 
 
-@router.get("/vocabulary", summary="Fee categories, statuses and flag types with labels")
-def get_vocabulary(ctx: AnyUser) -> VocabularyOut:
+@router.get(
+    "/vocabulary",
+    summary="Fee categories, statuses and flag types with labels, and the upload limit",
+)
+def get_vocabulary(ctx: AnyUser, settings: AppSettings) -> VocabularyOut:
     return VocabularyOut(
         fee_categories=[
             FeeCategoryItem(value=c.value, label=FEE_CATEGORY_LABELS[c], order=i)
@@ -70,6 +73,7 @@ def get_vocabulary(ctx: AnyUser) -> VocabularyOut:
         trip_operator_statuses=list(TripOperatorStatus),
         proposal_statuses=list(ProposalStatus),
         roles=list(Role),
+        max_upload_mb=settings.max_upload_mb,
     )
 
 

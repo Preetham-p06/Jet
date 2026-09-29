@@ -230,6 +230,34 @@ def test_later_message_in_the_same_document_wins(db: Session, trip: Trip, quote:
     assert current(db, quote, "headline_price").current_value["amount_minor"] == 3950000
 
 
+def test_invalid_value_is_skipped_with_an_event(db: Session, trip: Trip, quote: Quote) -> None:
+    report = run(
+        db,
+        quote,
+        doc(db, trip, 10),
+        result(scalar("aircraft_category", "spaceship"), scalar("seats", 9)),
+    )
+    assert report.inserted == ["seats"]
+    assert any(e.startswith("Skipped an invalid value") for e in report.events)
+    assert merge.current_field(db, quote.id, "aircraft_category") is None
+
+
+def test_same_value_at_a_new_sequence_is_a_no_op(db: Session, trip: Trip, quote: Quote) -> None:
+    d = doc(db, trip, 10)
+    first = scalar("seats", 9)
+    run(db, quote, d, result(first))
+    later = first.model_copy(update={"sequence": 3})
+    report = run(db, quote, d, result(later))
+    assert (report.inserted, report.replaced, report.superseded, report.corroborated) == (
+        [],
+        [],
+        [],
+        [],
+    )
+    assert len(rows(db, quote, "seats")) == 1
+    assert current(db, quote, "seats").sequence == 0
+
+
 def test_superseding_clears_stale_conflicts(db: Session, trip: Trip, quote: Quote) -> None:
     run(db, quote, doc(db, trip, 10), result(fee(FeeCategory.RAMP_HANDLING, "stated", 480)))
     run(db, quote, doc(db, trip, 20), result(fee(FeeCategory.RAMP_HANDLING, "estimated", 500)))
@@ -313,6 +341,10 @@ def test_low_confidence_name_uses_sender_label(db: Session, trip: Trip) -> None:
     d = doc(db, trip, 10, sender="Jet Guy <jet@guy.example>")
     res = merge.resolve_quote(db, trip, d, result(scalar("operator_name", "Blurry", 40)), now=NOW)
     assert res.operator is not None and res.operator.name == "Jet Guy"
+    assert res.created_operator
+    assert res.operator.source is OperatorSource.EXTRACTION
+    assert res.operator.email == "jet@guy.example"
+    assert db.scalars(select(Operator).where(Operator.name == "Blurry")).first() is None
 
 
 def test_decline_marks_rfq_declined_without_quote(db: Session, trip: Trip, ws: Workspace) -> None:

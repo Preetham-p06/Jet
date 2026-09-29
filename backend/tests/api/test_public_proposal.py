@@ -127,6 +127,33 @@ def test_whitelist_and_no_broker_details(
     assert body["status"] == "sent"
 
 
+def test_public_aircraft_label_hides_operator_and_tail(
+    broker: TestClient, client: TestClient, db: Session
+) -> None:
+    ws = broker.user.workspace  # type: ignore[attr-defined]
+    trip = factories.make_trip(db, ws, reference="JS900")
+    op = factories.make_operator(db, ws, "Wheels Up")
+    q = make_ready_quote(
+        db,
+        trip,
+        op,
+        known_total_cents=4_000_000,
+        aircraft_model="Gulfstream G-IV SP - Wheels-Up fleet (N-684AC)",
+        aircraft_category=AircraftCategory.HEAVY,
+        tail_number="N684AC",
+        seats=12,
+    )
+    db.commit()
+    res = broker.post(f"{V}/trips/{trip.id}/proposals", json={"quote_ids": [str(q.id)]})
+    assert res.status_code == 201, res.text
+    token = _send(broker, res.json()["id"])
+    public = client.get(f"{V}/public/proposals/{token}")
+    aircraft = public.json()["options"][0]["aircraft"]
+    assert aircraft == "Gulfstream G450"
+    for word in ("wheels", "684"):
+        assert word not in public.text.lower(), word
+
+
 def test_views_are_counted_and_the_first_is_audited(
     broker: TestClient, client: TestClient, draft: dict[str, Any], db: Session
 ) -> None:

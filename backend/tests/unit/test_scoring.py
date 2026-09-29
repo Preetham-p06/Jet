@@ -189,6 +189,17 @@ def test_capacity_gate() -> None:
     assert aircraft is not None and aircraft.raw == 0
 
 
+def test_unknown_seats_are_not_recommended() -> None:
+    unknown = inp("unknown", 900_000, seats=None)
+    known = inp("known", 1_000_000)
+    reasons = recommendation_eligibility(unknown, TRIP).reasons
+    assert [(r.code, r.message) for r in reasons] == [
+        (IneligibilityCode.INSUFFICIENT_CAPACITY, "Seat count unknown")
+    ]
+    assert score_trip([unknown, known], TRIP).recommended_quote_id == known.quote_id
+    assert score_trip([unknown], TRIP).recommended_quote_id is None
+
+
 def test_eligibility_reasons() -> None:
     q = inp(
         "x",
