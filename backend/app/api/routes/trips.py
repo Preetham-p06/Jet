@@ -13,8 +13,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.params import PageParams
+from app.api.routes._views import recommendation
 from app.deps import Admin, AnyUser, DbSession
-from app.errors import Conflict, Unprocessable, not_implemented
+from app.errors import Conflict, Unprocessable
 from app.models.document import ProcessingEvent, SourceDocument
 from app.models.enums import FlagStatus, QuoteStatus, TripOperatorStatus, TripStatus
 from app.models.flag import Flag
@@ -295,8 +296,10 @@ def delete_trip(trip_id: uuid.UUID, ctx: Admin, db: DbSession) -> Response:
 
 @router.post("/{trip_id}/recompute", summary="Re-run normalize, validate and score")
 def recompute_trip(trip_id: uuid.UUID, ctx: AnyUser, db: DbSession) -> RecommendationOut:
-    get_owned(db, Trip, trip_id, ctx)
-    not_implemented("Trip recompute")
+    trip = get_owned(db, Trip, trip_id, ctx)
+    recompute.recompute_trip(db, trip, ctx=ctx)
+    db.commit()
+    return recommendation(db, ctx, trip)
 
 
 @router.get("/{trip_id}/events", summary="Processing log, oldest first")

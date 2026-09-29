@@ -6,15 +6,17 @@ superseded proposal returns 410. Responses are never cached or indexed.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request, Response
 
 from app.api.routes.auth import ClientHeader
-from app.deps import AppSettings, client_ip, get_rate_limiter
-from app.errors import RateLimited, not_implemented
+from app.deps import AppSettings, DbSession, client_ip, get_rate_limiter
+from app.errors import RateLimited
 from app.schemas.proposal import PublicAcceptIn, PublicProposalOut
 from app.security.ratelimit import RateLimiter
+from app.services import proposals as svc
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -53,8 +55,18 @@ PublicGuard = Depends(public_guard)
     dependencies=[PublicGuard],
     summary="Client view of a proposal (whitelisted fields only)",
 )
-def get_public_proposal(token: Token) -> PublicProposalOut:
-    not_implemented("Public proposal")
+def get_public_proposal(token: Token, request: Request, db: DbSession) -> PublicProposalOut:
+    now = datetime.now(UTC)
+    proposal = svc.get_public_proposal(db, token, now=now)
+    svc.record_public_view(
+        db,
+        proposal,
+        now=now,
+        ip=client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
+    return svc.public_view(db, proposal)
 
 
 @router.post(
@@ -62,5 +74,19 @@ def get_public_proposal(token: Token) -> PublicProposalOut:
     dependencies=[PublicGuard, ClientHeader],
     summary="Client accepts one option",
 )
-def accept_public_proposal(token: Token, body: PublicAcceptIn) -> PublicProposalOut:
-    not_implemented("Public proposal acceptance")
+def accept_public_proposal(
+    token: Token, body: PublicAcceptIn, request: Request, db: DbSession
+) -> PublicProposalOut:
+    now = datetime.now(UTC)
+    proposal = svc.get_public_proposal(db, token, now=now)
+    svc.public_accept(
+        db,
+        proposal,
+        option_id=body.option_id,
+        name=body.name,
+        now=now,
+        ip=client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
+    return svc.public_view(db, proposal)

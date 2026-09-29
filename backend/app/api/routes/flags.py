@@ -10,19 +10,18 @@ from sqlalchemy import func, select
 
 from app.api.params import PageParams
 from app.deps import AnyUser, DbSession, Reviewer
-from app.errors import not_implemented
-from app.models.enums import FLAG_RESOLUTIONS, FlagStatus
+from app.models.enums import FlagStatus
 from app.models.flag import Flag
 from app.models.trip import Trip
 from app.permissions import get_owned, scoped
 from app.schemas.common import Page
 from app.schemas.flag import FlagOut, FlagResolveIn
+from app.services import review
+from app.services.review import flag_out
 
 router = APIRouter(tags=["flags"])
 
-
-def flag_out(flag: Flag) -> FlagOut:
-    return FlagOut.from_row(flag, allowed_resolutions=list(FLAG_RESOLUTIONS.get(flag.type, ())))
+__all__ = ["flag_out", "router"]
 
 
 @router.get("/trips/{trip_id}/flags", summary="Flags for a trip")
@@ -53,11 +52,22 @@ def list_flags(
     "/flags/{flag_id}/resolve", summary="Resolve a flag; money resolutions write the field"
 )
 def resolve_flag(flag_id: uuid.UUID, body: FlagResolveIn, ctx: Reviewer, db: DbSession) -> FlagOut:
-    get_owned(db, Flag, flag_id, ctx)
-    not_implemented("Flag resolve")
+    flag = review.resolve_flag(
+        db,
+        ctx,
+        get_owned(db, Flag, flag_id, ctx),
+        resolution=body.resolution,
+        amount_cents=body.amount_cents,
+        note=body.note,
+    )
+    db.commit()
+    db.refresh(flag)
+    return flag_out(flag)
 
 
 @router.post("/flags/{flag_id}/reopen", summary="Reopen a resolved or dismissed flag")
 def reopen_flag(flag_id: uuid.UUID, ctx: Reviewer, db: DbSession) -> FlagOut:
-    get_owned(db, Flag, flag_id, ctx)
-    not_implemented("Flag reopen")
+    flag = review.reopen_flag(db, ctx, get_owned(db, Flag, flag_id, ctx))
+    db.commit()
+    db.refresh(flag)
+    return flag_out(flag)

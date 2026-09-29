@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.deps import role_gate_of
 from app.models.enums import Role
+from tests.api.routes import api_routes
 from tests.conftest import WEB_HEADERS, ClientFactory, TwoWorkspaces
 
 SIGNUP = {
@@ -174,20 +173,16 @@ def test_every_route_declares_a_role_gate(app: FastAPI) -> None:
         "/api/v1/public/proposals/{token}",
         "/api/v1/public/proposals/{token}/accept",
     }
-    ungated = []
-    for route in app.routes:
-        if not isinstance(route, APIRoute) or route.path in public:
-            continue
-        gates = [role_gate_of(d.call) for d in route.dependant.dependencies]
-        if not any(gates):
-            ungated.append(f"{sorted(route.methods)} {route.path}")
+    routes = api_routes(app)
+    assert len(routes) > 60  # the walker must see the nested routers
+    ungated = [f"{r.method} {r.path}" for r in routes if r.path not in public and not r.roles()]
     assert ungated == []
-    assert all(not r.path.endswith("/") for r in app.routes if isinstance(r, APIRoute))
+    assert all(not r.path.endswith("/") for r in routes)
 
 
 def test_public_errors_keep_privacy_headers(client: TestClient) -> None:
     res = client.get("/api/v1/public/proposals/" + "x" * 43)
-    assert res.status_code == 501
+    assert res.status_code == 404
     assert res.headers["referrer-policy"] == "no-referrer"
     assert res.headers["x-robots-tag"] == "noindex, nofollow"
     assert res.headers["cache-control"] == "no-store"

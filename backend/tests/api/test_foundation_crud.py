@@ -1,4 +1,4 @@
-"""Foundation CRUD: users, invites, operators, RFQ tracking, documents, flags, meta, 501s."""
+"""Foundation CRUD: users, invites, operators, RFQ tracking, documents, flags, meta."""
 
 from __future__ import annotations
 
@@ -140,7 +140,9 @@ def test_documents_flags_and_quotes_reads(
     quotes = a.broker.get(f"/api/v1/trips/{a.trip.id}/quotes").json()
     assert quotes["items"][0]["operator_name"] == "Atlas Jets"
     assert b.admin.get(f"/api/v1/quotes/{quote.id}").status_code == 404
-    assert a.admin.get(f"/api/v1/quotes/{quote.id}").status_code == 501
+    detail = a.admin.get(f"/api/v1/quotes/{quote.id}")
+    assert detail.status_code == 200
+    assert detail.json()["sources"][0]["original_filename"] == "atlas_quote_01.pdf"
 
 
 def test_meta_vocabulary_and_not_implemented(client_as: ClientFactory) -> None:
@@ -155,6 +157,6 @@ def test_meta_vocabulary_and_not_implemented(client_as: ClientFactory) -> None:
     assert res.status_code == 403
     broker = client_as(Role.BROKER)
     res = broker.get("/api/v1/analytics/overview")
-    assert res.status_code == 501
-    assert res.json()["code"] == "not_implemented"
+    assert res.status_code == 200
+    assert res.json()["funnel"]["created"] == 0
     assert broker.get("/api/v1/audit-events").status_code == 403
