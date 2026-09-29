@@ -25,3 +25,21 @@ export function confidenceTier(score: number): ConfidenceTier {
   if (score >= 75) return "neutral";
   return "review";
 }
+
+/** Display label for an aircraft category enum ("super_midsize" → "Super-midsize"). */
+export const CATEGORY_LABEL: Record<string, string> = {
+  turboprop: "Turboprop",
+  very_light: "Very light jet",
+  light: "Light jet",
+  midsize: "Midsize",
+  super_midsize: "Super-midsize",
+  heavy: "Heavy",
+  ultra_long_range: "Ultra long range",
+  airliner: "Airliner",
+};
+
+export function categoryLabel(c: string | null | undefined): string {
+  if (!c) return "—";
+  const s = c.replace(/[_-]+/g, " ").trim();
+  return CATEGORY_LABEL[c] ?? s.charAt(0).toUpperCase() + s.slice(1);
+}

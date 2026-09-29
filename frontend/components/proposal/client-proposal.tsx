@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { CheckCircle2, Clock, Star, Users, Wifi, WifiOff } from "lucide-react";
 import type { PublicProposal } from "@/lib/api/endpoints";
-import { formatCents, formatDuration } from "@/lib/format";
+import { categoryLabel, formatCents, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const longDate = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
@@ -82,7 +82,7 @@ export function ClientProposal({
                 )
               )}
               <p className="text-[20px] font-semibold tracking-[-0.02em] text-fg">{o.aircraft}</p>
-              <p className="mt-0.5 text-[12.5px] text-fg-dim">{o.category ?? "Private jet"}</p>
+              <p className="mt-0.5 text-[12.5px] text-fg-dim">{o.category ? categoryLabel(o.category) : "Private jet"}</p>
               <p className="tabular mt-6 text-[28px] font-semibold leading-none tracking-[-0.03em] text-fg" data-testid="client-total">
                 {formatCents(o.client_total_cents)}
               </p>

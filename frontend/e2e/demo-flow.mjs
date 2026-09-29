@@ -40,6 +40,8 @@ function check(name, ok, detail = "") {
 async function shot(page, name) {
   shotNo += 1;
   const file = path.join(OUT_DIR, `${String(shotNo).padStart(2, "0")}-${name}.png`);
+  // Scrolled pages capture the sticky sidebar mid-page; shoot from the top.
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: file, fullPage: true });
   console.log(`      screenshot ${file}`);
 }
@@ -81,6 +83,15 @@ let operatorNames = [];
 await step("1 landing → log in", async () => {
   await page.goto(`${BASE_URL}/`);
   await settle(page);
+  await page.screenshot({ path: path.join(OUT_DIR, "00-landing-hero.png") });
+  // Sections animate in on scroll; walk the page so the full-page shot isn't blank.
+  const height = await page.evaluate(() => document.body.scrollHeight);
+  for (let y = 0; y < height; y += 600) {
+    await page.evaluate((top) => window.scrollTo(0, top), y);
+    await page.waitForTimeout(120);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(400);
   await shot(page, "landing");
   await page.getByRole("link", { name: /^log in$/i }).first().click();
   await page.waitForURL(/\/login/);
@@ -117,11 +128,12 @@ await step("4 overview", async () => {
 await step("5 comparison", async () => {
   await page.getByRole("tab", { name: /Quotes/ }).click();
   await page.getByText("Quote comparison").waitFor();
-  await page.getByText("RECOMMENDED").first().waitFor({ timeout: 20_000 });
+  const summitRow = page.locator("tr", { hasText: "Summit" }).first();
+  await summitRow.waitFor({ timeout: 20_000 });
   await settle(page);
   const t = await text(page);
   check("Atlas true cost $44,820", t.includes("$44,820"));
-  check("Summit shows $41,980+", t.includes("$41,980+"));
+  check("Summit shows $41,980+", (await summitRow.innerText()).includes("$41,980+"));
   const atlasRow = page.locator("tr", { hasText: "Atlas" }).first();
   check("Atlas row is RECOMMENDED", (await atlasRow.innerText()).includes("RECOMMENDED"));
   await shot(page, "comparison");
@@ -131,6 +143,7 @@ await step("5 comparison", async () => {
 await step("6 review queue", async () => {
   await page.getByRole("tab", { name: /Review/ }).click();
   await page.getByText("Review queue").first().waitFor();
+  await page.getByText(/\d+%/).first().waitFor({ timeout: 20_000 }).catch(() => {});
   await settle(page);
   const t = await text(page);
   check("Summit fuel at 61% in queue", /Summit/.test(t) && /61%/.test(t));
@@ -140,6 +153,7 @@ await step("6 review queue", async () => {
 // 7. Flags
 await step("7 flags", async () => {
   await page.getByRole("tab", { name: /Flags/ }).click();
+  await page.getByText(/Ambiguous charge/i).first().waitFor({ timeout: 20_000 }).catch(() => {});
   await settle(page);
   const t = await text(page);
   check("ambiguous charge flag listed", /Ambiguous charge/i.test(t));
@@ -150,6 +164,7 @@ await step("7 flags", async () => {
 await step("8 recommendation", async () => {
   await page.getByRole("tab", { name: /Recommendation/ }).click();
   await page.getByText("Ranking").waitFor();
+  await page.getByText(/checks passed/).first().waitFor({ timeout: 20_000 }).catch(() => {});
   await settle(page);
   const t = await text(page);
   check("Atlas fit 96", /Fit breakdown · Atlas/.test(t) && /\b96\b/.test(t));
@@ -157,9 +172,32 @@ await step("8 recommendation", async () => {
   await shot(page, "recommendation");
 });
 
+// 8b. Assistant: actions hidden or disabled (runs before the SMS revision clears the queue)
+await step("8b assistant role", async () => {
+  const actx = await browser.newContext({ viewport: VIEWPORT });
+  const ap = await actx.newPage();
+  await login(ap, ASSISTANT_EMAIL);
+  check("assistant nav hides Analytics", (await ap.getByRole("link", { name: "Analytics" }).count()) === 0);
+  await ap.goto(`${BASE_URL}/trips/${tripId}?tab=review`);
+  await ap.getByText("Review queue").first().waitFor();
+  await ap.getByRole("button", { name: /Verify/ }).first().waitFor({ timeout: 20_000 }).catch(() => {});
+  await settle(ap);
+  const verify = ap.getByRole("button", { name: /Verify/ });
+  const n = await verify.count();
+  let allDisabled = n > 0;
+  for (let i = 0; i < n; i++) allDisabled &&= await verify.nth(i).isDisabled();
+  check("assistant cannot verify", allDisabled, `${n} verify buttons`);
+  check("proposals tab hidden", (await ap.getByRole("tab", { name: /Proposals/ }).count()) === 0);
+  await shot(ap, "assistant-review");
+  await actx.close();
+});
+
 // 9. Paste a new SMS revision and watch the log
 await step("9 paste SMS revision", async () => {
   await page.getByRole("tab", { name: /Quotes/ }).click();
+  const logItems = page.locator("[data-testid=processing-log] li");
+  await logItems.first().waitFor({ timeout: 20_000 });
+  const before = await logItems.count();
   await page.getByRole("radio", { name: "Paste" }).click();
   await page.locator("#ingest-text").fill(
     "Hi it's Dan at Summit re JS184 KTEB-KOPF 18 Oct. Revised: fuel confirmed included, 38,900 all in, crew overnight 700 extra. Thx",
@@ -169,9 +207,15 @@ await step("9 paste SMS revision", async () => {
   if (value) await page.locator("#ingest-op").selectOption(value);
   await page.getByRole("button", { name: /Extract quote/ }).click();
   await page.getByText(/Extracted|Failed|Needs manual/).first().waitFor({ timeout: 90_000 });
-  await page.waitForTimeout(1500);
+  await page
+    .locator("[data-testid=processing-log]", { hasText: "Received SMS message" })
+    .waitFor({ timeout: 5_000 })
+    .catch(() => {});
+  await page.waitForTimeout(500);
   await shot(page, "processing-log");
-  check("processing log has events", (await page.locator("text=JetStream intelligence").count()) > 0);
+  const after = await logItems.count();
+  const logText = await page.locator("[data-testid=processing-log]").innerText();
+  check("live log shows the new SMS events", after > before && /Received SMS message/.test(logText), `${before} → ${after} lines`);
 });
 
 // 10. Proposal builder with 5% markup, then send
@@ -239,25 +283,6 @@ await step("12 analytics", async () => {
   await page.getByText("Quote volume").waitFor({ timeout: 20_000 });
   await settle(page);
   await shot(page, "analytics");
-});
-
-// 13. Assistant: actions hidden or disabled
-await step("13 assistant role", async () => {
-  const actx = await browser.newContext({ viewport: VIEWPORT });
-  const ap = await actx.newPage();
-  await login(ap, ASSISTANT_EMAIL);
-  check("assistant nav hides Analytics", (await ap.getByRole("link", { name: "Analytics" }).count()) === 0);
-  await ap.goto(`${BASE_URL}/trips/${tripId}?tab=review`);
-  await ap.getByText("Review queue").first().waitFor();
-  await settle(ap);
-  const verify = ap.getByRole("button", { name: /Verify/ });
-  const n = await verify.count();
-  let allDisabled = n > 0;
-  for (let i = 0; i < n; i++) allDisabled &&= await verify.nth(i).isDisabled();
-  check("assistant cannot verify", allDisabled, `${n} verify buttons`);
-  check("proposals tab hidden", (await ap.getByRole("tab", { name: /Proposals/ }).count()) === 0);
-  await shot(ap, "assistant-review");
-  await actx.close();
 });
 
 // 14. New workspace cannot see JS184

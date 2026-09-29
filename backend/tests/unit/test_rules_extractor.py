@@ -290,3 +290,28 @@ def test_result_metadata() -> None:
     assert result.extractor == "rules"
     assert result.extractor_version == "rules-1"
     assert result.model is None
+
+
+def test_all_in_amount_after_an_included_fee_is_the_headline() -> None:
+    # Regression (live demo): the pasted Summit revision gave the all-in price to the
+    # fuel anchor on its left, storing "fuel surcharge $38,900 (included)" and no headline.
+    result = extract(
+        "Hi it's Dan at Summit re JS184 KTEB-KOPF 18 Oct. Revised: fuel confirmed included, "
+        "38,900 all in, crew overnight 700 extra. Thx",
+        DocumentKind.SMS,
+    )
+    headline = field_value(result, "headline_price")
+    assert headline is not None and headline.amount_minor == 3_890_000  # type: ignore[attr-defined]
+    assert field_value(result, "all_in") is True
+    fuel = fee(result, FeeCategory.FUEL_SURCHARGE)
+    assert (fuel.status, fuel.amount) == ("included", None)
+    crew = fee(result, FeeCategory.CREW_OVERNIGHT)
+    assert crew.status == "stated" and crew.amount is not None
+    assert crew.amount.amount_minor == 70_000
+
+
+def test_fee_amount_followed_by_all_in_stays_a_fee() -> None:
+    result = extract("Catering 450 all in.")
+    catering = fee(result, FeeCategory.CATERING)
+    assert catering.amount is not None and catering.amount.amount_minor == 45_000
+    assert field_value(result, "headline_price") is None

@@ -9,6 +9,20 @@ import { useApi } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { useCan } from "../me-provider";
 import { fmtLocal, formatCents } from "../fmt";
+
+function RecTotal({ t }: { t: TripSummary }) {
+  if (t.recommended_total_cents == null) return <>{formatCents(null)}</>;
+  return (
+    <>
+      {formatCents(t.recommended_total_cents)}
+      {t.is_fully_priced === false && (
+        <span className="text-amber" aria-label="plus unconfirmed charges" title="Not fully priced">
+          +
+        </span>
+      )}
+    </>
+  );
+}
 import { TripStatusPill } from "../status";
 import { EmptyState, ErrorState, LoadingBlock, Panel, TableScroll, inputCls, tdCls, thCls } from "../ui";
 
@@ -116,7 +130,7 @@ export function TripsList() {
               <table className="w-full min-w-[820px] border-separate border-spacing-0 text-[13px]">
                 <thead>
                   <tr>
-                    {["Reference", "Route", "Departure", "Pax", "Status", "Quotes", "Flags", "Recommended"].map(
+                    {["Reference", "Route", "Departure", "Pax", "Status", "Quotes", "Blocking", "Recommended"].map(
                       (h, i) => (
                         <th key={h} className={cn(thCls, i >= 3 && i !== 4 && "text-right")}>
                           {h}
@@ -151,17 +165,22 @@ export function TripsList() {
                       </td>
                       <td className={cn(tdCls, "tabular text-right text-fg-muted")}>{t.quote_count ?? 0}</td>
                       <td className={cn(tdCls, "tabular text-right")}>
-                        {(t.open_flag_count ?? 0) > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-amber">
+                        {t.open_blocking_flag_count > 0 ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-amber"
+                            title={`${t.open_blocking_flag_count} blocking · ${t.open_flag_count ?? 0} open`}
+                          >
                             <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                            {t.open_flag_count}
+                            {t.open_blocking_flag_count}
                           </span>
                         ) : (
-                          <span className="text-fg-dim">0</span>
+                          <span className="text-fg-dim" title={`${t.open_flag_count ?? 0} open notes, none blocking`}>
+                            0
+                          </span>
                         )}
                       </td>
                       <td className={cn(tdCls, "tabular text-right font-mono text-fg")}>
-                        {formatCents(t.recommended_total_cents)}
+                        <RecTotal t={t} />
                       </td>
                       <td className={cn(tdCls, "w-8 text-fg-dim")}>
                         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:text-cyan" aria-hidden="true" />
@@ -186,11 +205,13 @@ export function TripsList() {
                       <span>{fmtLocal(t.legs[0]?.depart_local, t.legs[0]?.depart_tz, true)}</span>
                       <span>{t.pax} pax</span>
                       <span>{t.quote_count ?? 0} quotes</span>
-                      {(t.open_flag_count ?? 0) > 0 && (
-                        <span className="text-amber">{t.open_flag_count} flags</span>
+                      {t.open_blocking_flag_count > 0 && (
+                        <span className="text-amber">{t.open_blocking_flag_count} blocking</span>
                       )}
                       {t.recommended_total_cents != null && (
-                        <span className="tabular font-mono text-fg">{formatCents(t.recommended_total_cents)}</span>
+                        <span className="tabular font-mono text-fg">
+                          <RecTotal t={t} />
+                        </span>
                       )}
                     </div>
                   </Link>

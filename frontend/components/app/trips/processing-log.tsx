@@ -24,11 +24,14 @@ export function LiveProcessingLog({
   live,
   className,
   maxHeight = 320,
+  refreshKey,
 }: {
   tripId: string;
   live: boolean;
   className?: string;
   maxHeight?: number;
+  /** Changes whenever the trip's data changed (e.g. an ingest settled); fetches new events at once. */
+  refreshKey?: number;
 }) {
   const [events, setEvents] = useState<ProcessingEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +79,19 @@ export function LiveProcessingLog({
 
   usePoll(fetchMore, live ? 1200 : 8000, true);
 
+  // Inline-mode extraction finishes before the idle poll fires, so pull the
+  // new events as soon as the caller reports a change instead of up to 8 s later.
+  const fetchMoreRef = useRef(fetchMore);
+  useEffect(() => {
+    fetchMoreRef.current = fetchMore;
+  });
+  const firstKey = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshKey === firstKey.current) return;
+    firstKey.current = refreshKey;
+    void fetchMoreRef.current();
+  }, [refreshKey]);
+
   useEffect(() => {
     const el = boxRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -95,7 +111,14 @@ export function LiveProcessingLog({
           {live ? "LIVE" : "IDLE"}
         </span>
       </div>
-      <div ref={boxRef} className="overflow-y-auto pr-1" style={{ maxHeight }} aria-live="polite" aria-relevant="additions">
+      <div
+        ref={boxRef}
+        data-testid="processing-log"
+        className="overflow-y-auto pr-1"
+        style={{ maxHeight }}
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {!loaded ? (
           <p className="shimmer-text">Connecting…</p>
         ) : error && !events.length ? (

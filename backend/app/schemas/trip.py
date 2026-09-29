@@ -144,8 +144,16 @@ class TripSummaryOut(ORMModel):
     legs: list[LegOut]
     quote_count: int = 0
     open_flag_count: int = 0
+    open_blocking_flag_count: int = Field(
+        default=0, description="Open flags that block a proposal (warning or critical)"
+    )
     recommended_quote_id: uuid.UUID | None = None
     recommended_total_cents: Cents | None = None
+    is_fully_priced: bool | None = Field(
+        default=None,
+        description="Whether the recommended quote is fully priced; False means show "
+        "recommended_total_cents with a '+'. None when nothing is recommended.",
+    )
     created_at: AwareDatetime
     updated_at: AwareDatetime
 

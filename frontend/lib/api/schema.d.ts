@@ -3262,10 +3262,21 @@ export interface components {
              * @default 0
              */
             open_flag_count: number;
+            /**
+             * Open Blocking Flag Count
+             * @description Open flags that block a proposal (warning or critical)
+             * @default 0
+             */
+            open_blocking_flag_count: number;
             /** Recommended Quote Id */
             recommended_quote_id?: string | null;
             /** Recommended Total Cents */
             recommended_total_cents?: number | null;
+            /**
+             * Is Fully Priced
+             * @description Whether the recommended quote is fully priced; False means show recommended_total_cents with a '+'. None when nothing is recommended.
+             */
+            is_fully_priced?: boolean | null;
             /**
              * Created At
              * Format: date-time
@@ -3365,10 +3376,21 @@ export interface components {
              * @default 0
              */
             open_flag_count: number;
+            /**
+             * Open Blocking Flag Count
+             * @description Open flags that block a proposal (warning or critical)
+             * @default 0
+             */
+            open_blocking_flag_count: number;
             /** Recommended Quote Id */
             recommended_quote_id?: string | null;
             /** Recommended Total Cents */
             recommended_total_cents?: number | null;
+            /**
+             * Is Fully Priced
+             * @description Whether the recommended quote is fully priced; False means show recommended_total_cents with a '+'. None when nothing is recommended.
+             */
+            is_fully_priced?: boolean | null;
             /**
              * Created At
              * Format: date-time

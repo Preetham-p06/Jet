@@ -249,7 +249,10 @@ class _Run:
             ):
                 target: tuple[int, AnchorMatch] | None = None
                 left = [a for a in anchors if a.end <= money.start]
-                if left:
+                all_in = self._all_in_price(idx, money, left)
+                if all_in is not None:
+                    target = (idx, all_in)
+                elif left:
                     target = (idx, left[-1])
                 elif not anchors and prev is not None and self.anchors[prev]:
                     target = (prev, self.anchors[prev][-1])
@@ -270,6 +273,37 @@ class _Run:
                     order.append(key)
                 by_anchor[key].values.append((idx, money))
         return [by_anchor[k] for k in order], unassigned
+
+    def _all_in_price(
+        self, idx: int, money: MoneyMatch, left: list[AnchorMatch]
+    ) -> AnchorMatch | None:
+        """A headline anchor for "38,900 all in" when no price word claims the amount.
+
+        Without it, "fuel confirmed included, 38,900 all in" gave the all-in charter
+        price to the fuel anchor on its left (an included fuel fee of $38,900), and
+        the quote lost its headline. A fee anchor that already carries its own status
+        (included, waived, extra) is closed, so the amount can't be its value.
+        """
+        if money.amount_minor is None or money.per_hour:
+            return None
+        quals = self.qualifiers[idx]
+        follows = [
+            q for q in quals if q.qualifier is Qualifier.ALL_IN and 0 <= q.start - money.end <= 3
+        ]
+        if not follows:
+            return None
+        if left:
+            anchor = left[-1]
+            if anchor.kind != "fee":
+                return None  # "quote is 38,900 all in": the price word takes it
+            closing = (Qualifier.INCLUDED, Qualifier.WAIVED, Qualifier.EXTRA)
+            if not any(
+                q.qualifier in closing and anchor.end <= q.start < money.start for q in quals
+            ):
+                return None  # "catering 450 all in" stays a fee
+        return AnchorMatch(
+            kind="headline", category=None, text="all in", start=money.start, end=money.start
+        )
 
     def _scope_qualifiers(self, item: _Assigned, money_idx: int, money: MoneyMatch) -> set[str]:
         """Qualifier texts that apply to an anchor with a value (see module docs)."""

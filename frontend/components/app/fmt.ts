@@ -1,7 +1,7 @@
 /** Dashboard-only formatters layered on `lib/format.ts`. */
 import { formatCents } from "@/lib/format";
 
-export { formatCents, formatDuration } from "@/lib/format";
+export { CATEGORY_LABEL, categoryLabel, formatCents, formatDuration } from "@/lib/format";
 
 const dtf = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const df = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -96,22 +96,6 @@ export function humanize(v: string | null | undefined): string {
   if (SPECIAL[v]) return SPECIAL[v];
   const s = v.replace(/[_-]+/g, " ").trim();
   return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-export const CATEGORY_LABEL: Record<string, string> = {
-  turboprop: "Turboprop",
-  very_light: "Very light jet",
-  light: "Light jet",
-  midsize: "Midsize",
-  super_midsize: "Super-midsize",
-  heavy: "Heavy",
-  ultra_long_range: "Ultra long range",
-  airliner: "Airliner",
-};
-
-export function categoryLabel(c: string | null | undefined): string {
-  if (!c) return "—";
-  return CATEGORY_LABEL[c] ?? humanize(c);
 }
 
 /** "$41,980" with an optional trailing "+" when not fully priced. */

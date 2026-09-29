@@ -92,9 +92,12 @@ export function TrueCostCell({
         </>
       }
     >
-      {formatCents(known)}
-      <span className="text-amber" aria-label="plus unconfirmed charges">
-        +
+      {/* One inline run so the "+" hugs the amount (the trigger is a flex box). */}
+      <span>
+        {formatCents(known)}
+        <span className="text-amber" aria-label="plus unconfirmed charges">
+          +
+        </span>
       </span>
     </Tooltip>
   );
@@ -121,6 +124,9 @@ function FitBadge({ q }: { q: QuoteSummary }) {
 /* ------------------------------------------------------------------ */
 
 const stickyCls = "sticky left-0 z-10 bg-[#0c1119]";
+// With every fee column the table is ~2,000 px wide; pin True cost to the right
+// edge so the number the broker decides on is visible without scrolling.
+const stickyRightCls = "sticky right-0 z-10 bg-[#0c1119] shadow-[-12px_0_12px_-12px_rgba(0,0,0,0.9)]";
 const th = "whitespace-nowrap border-b border-line px-3 pb-2.5 pt-1 font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-fg-dim";
 const td = "border-b border-line px-3 py-3 align-middle";
 
@@ -146,7 +152,7 @@ export function ComparisonTable({ data, tripId }: { data: Comparison; tripId: st
               </th>
             ))}
             <th className={cn(th, "text-right")}>Added</th>
-            <th className={cn(th, "text-right text-ice")}>True cost</th>
+            <th className={cn(th, stickyRightCls, "text-right text-ice")}>True cost</th>
             <th className={cn(th, "text-left")}>Confidence</th>
             <th className={cn(th, "text-left")}>Fit</th>
             <th className={cn(th, "pr-0 text-left")}>Flags</th>
@@ -205,7 +211,7 @@ export function ComparisonTable({ data, tripId }: { data: Comparison; tripId: st
                   {formatCents(r.added_charges_cents)}
                   {!q.is_fully_priced && r.added_charges_cents != null && <span className="text-amber">+</span>}
                 </td>
-                <td className={cn(td, "text-right text-[14px]")}>
+                <td className={cn(td, stickyRightCls, "whitespace-nowrap text-right text-[14px]", rec && "bg-[#0d1822]")}>
                   <TrueCostCell known={q.known_total_cents} upper={q.upper_total_cents} fullyPriced={q.is_fully_priced} />
                 </td>
                 <td className={td}>
@@ -241,8 +247,8 @@ export function ComparisonTable({ data, tripId }: { data: Comparison; tripId: st
           <span className="text-amber">Amber</span> values are estimated, unstated or below the {threshold}% review threshold.
         </span>
         <span>
-          <span className="font-mono text-fg">$41,980</span>
-          <span className="text-amber">+</span> means not fully priced; hover for the upper bound.
+          A trailing <span className="text-amber">+</span> on a true cost means not fully priced; hover for the upper
+          bound.
         </span>
       </p>
     </TableScroll>

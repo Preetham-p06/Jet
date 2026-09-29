@@ -116,6 +116,12 @@ def _summaries(db: Session, trips: Sequence[Trip]) -> list[TripSummaryOut]:
         .where(Flag.trip_id.in_(ids), Flag.status == FlagStatus.OPEN)
         .group_by(Flag.trip_id),
     )
+    blocking_counts = _count_by_trip(
+        db,
+        select(Flag.trip_id, func.count())
+        .where(Flag.trip_id.in_(ids), Flag.status == FlagStatus.OPEN, Flag.blocking.is_(True))
+        .group_by(Flag.trip_id),
+    )
     recommended = {
         q.trip_id: q
         for q in db.scalars(
@@ -136,8 +142,10 @@ def _summaries(db: Session, trips: Sequence[Trip]) -> list[TripSummaryOut]:
                 legs=[LegOut.model_validate(leg) for leg in trip.legs],
                 quote_count=quote_counts.get(trip.id, 0),
                 open_flag_count=flag_counts.get(trip.id, 0),
+                open_blocking_flag_count=blocking_counts.get(trip.id, 0),
                 recommended_quote_id=rec.id if rec else None,
                 recommended_total_cents=rec.known_total_cents if rec else None,
+                is_fully_priced=rec.is_fully_priced if rec else None,
                 created_at=trip.created_at,
                 updated_at=trip.updated_at,
             )

@@ -34,7 +34,11 @@ export function QuotesTab() {
             bump();
           }}
         />
-        <LiveProcessingLog tripId={tripId} live={live || anyPending} className="min-h-[260px]" maxHeight={420} />
+        <LiveProcessingLog tripId={tripId} live={live || anyPending}
+          refreshKey={version}
+          className="min-h-[260px]"
+          maxHeight={420}
+        />
       </div>
 
       <Panel

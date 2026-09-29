@@ -14702,6 +14702,12 @@
             "title": "Open Flag Count",
             "default": 0
           },
+          "open_blocking_flag_count": {
+            "type": "integer",
+            "title": "Open Blocking Flag Count",
+            "description": "Open flags that block a proposal (warning or critical)",
+            "default": 0
+          },
           "recommended_quote_id": {
             "anyOf": [
               {
@@ -14725,6 +14731,18 @@
               }
             ],
             "title": "Recommended Total Cents"
+          },
+          "is_fully_priced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Fully Priced",
+            "description": "Whether the recommended quote is fully priced; False means show recommended_total_cents with a '+'. None when nothing is recommended."
           },
           "created_at": {
             "type": "string",
@@ -15058,6 +15076,12 @@
             "title": "Open Flag Count",
             "default": 0
           },
+          "open_blocking_flag_count": {
+            "type": "integer",
+            "title": "Open Blocking Flag Count",
+            "description": "Open flags that block a proposal (warning or critical)",
+            "default": 0
+          },
           "recommended_quote_id": {
             "anyOf": [
               {
@@ -15081,6 +15105,18 @@
               }
             ],
             "title": "Recommended Total Cents"
+          },
+          "is_fully_priced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Fully Priced",
+            "description": "Whether the recommended quote is fully priced; False means show recommended_total_cents with a '+'. None when nothing is recommended."
           },
           "created_at": {
             "type": "string",
