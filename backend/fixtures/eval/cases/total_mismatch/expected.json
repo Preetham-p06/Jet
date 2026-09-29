@@ -1,0 +1,21 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Pinnacle Air",
+    "headline_price": "24500.00",
+    "stated_total": "26100.00",
+    "aircraft_model": "Embraer Phenom 300",
+    "tail_number": "N300PA"
+  },
+  "fees": {
+    "positioning": {
+      "status": "stated",
+      "amount": "900.00"
+    },
+    "landing": {
+      "status": "stated",
+      "amount": "180.00"
+    }
+  }
+}

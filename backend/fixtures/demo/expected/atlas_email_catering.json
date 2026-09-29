@@ -1,0 +1,16 @@
+{
+  "file": "atlas_email_catering.eml",
+  "intent": "quote",
+  "currency": "USD",
+  "fields": {
+    "operator_name": "Atlas Air Charter",
+    "pax": 7,
+    "availability": "confirmed",
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF"
+  },
+  "fees": {
+    "catering": {"status": "included", "amount": null}
+  },
+  "confidence": {"fee.catering": 95}
+}

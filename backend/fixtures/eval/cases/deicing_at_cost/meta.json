@@ -1,0 +1,6 @@
+{
+  "description": "De-icing at cost if required",
+  "demo": false,
+  "channel": "paste",
+  "input": "input.txt"
+}

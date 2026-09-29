@@ -1,0 +1,19 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Crescent Aviation",
+    "aircraft_model": "Bombardier Challenger 350",
+    "aircraft_category": "super_midsize",
+    "tail_number": "N35CR",
+    "seats": 9,
+    "wifi": false,
+    "headline_price": "44000.00"
+  },
+  "fees": {
+    "positioning": {
+      "status": "stated",
+      "amount": "1300.00"
+    }
+  }
+}

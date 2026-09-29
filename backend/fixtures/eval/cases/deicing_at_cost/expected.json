@@ -1,0 +1,23 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Harborview Aviation",
+    "headline_price": "36200.00",
+    "tail_number": "N680HV",
+    "aircraft_model": "Cessna Citation Sovereign",
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF"
+  },
+  "fees": {
+    "positioning": {
+      "status": "stated",
+      "amount": "1100.00"
+    },
+    "deicing": {
+      "status": "not_stated",
+      "amount": null,
+      "hedged": true
+    }
+  }
+}

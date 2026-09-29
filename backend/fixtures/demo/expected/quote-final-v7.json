@@ -1,0 +1,30 @@
+{
+  "file": "quote-final-v7.pdf",
+  "intent": "quote",
+  "currency": "USD",
+  "fields": {
+    "operator_name": "SkyBridge Aviation",
+    "aircraft_model": "Bombardier Challenger 350",
+    "aircraft_category": "super_midsize",
+    "tail_number": "N350SB",
+    "seats": 9,
+    "wifi": true,
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF",
+    "departure_local": "2026-10-18T09:30",
+    "flight_time_minutes": 168,
+    "availability": "available",
+    "currency": "USD",
+    "headline_price": "45900.00",
+    "stated_total": "47200.00"
+  },
+  "fees": {
+    "positioning": {"status": "stated", "amount": "850.00"},
+    "ramp_handling": {"status": "stated", "amount": "450.00"},
+    "catering": {"status": "included", "amount": null},
+    "fet": {"status": "included", "amount": null},
+    "segment_fees": {"status": "included", "amount": null}
+  },
+  "pages": {"fee.positioning": 1, "fee.catering": 2},
+  "known_total": "47200.00"
+}

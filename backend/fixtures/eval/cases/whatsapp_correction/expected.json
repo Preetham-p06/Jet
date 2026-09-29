@@ -1,0 +1,18 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Coastal Wings",
+    "headline_price": "42500.00",
+    "aircraft_model": "Cessna Citation Latitude",
+    "availability": "available",
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF"
+  },
+  "fees": {
+    "positioning": {
+      "status": "stated",
+      "amount": "900.00"
+    }
+  }
+}

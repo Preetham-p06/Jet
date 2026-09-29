@@ -1,0 +1,9 @@
+{
+  "description": "Demo fixture summit_sms.txt (Summit Executive Aviation)",
+  "demo": true,
+  "input": "../../../demo/summit_sms.txt",
+  "expected": "../../../demo/expected/summit_sms.json",
+  "channel": "sms",
+  "sender": "Summit Executive Aviation <+16175550142>",
+  "subject": null
+}

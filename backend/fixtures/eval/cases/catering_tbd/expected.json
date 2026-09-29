@@ -1,0 +1,18 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Ridgeway Air",
+    "aircraft_model": "Learjet 75",
+    "aircraft_category": "light",
+    "tail_number": "N75RW",
+    "headline_price": "19800.00"
+  },
+  "fees": {
+    "catering": {
+      "status": "not_stated",
+      "amount": null,
+      "hedged": true
+    }
+  }
+}

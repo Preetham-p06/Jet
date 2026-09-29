@@ -1,0 +1,18 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Northwind Charter",
+    "aircraft_model": "Gulfstream G450",
+    "aircraft_category": "heavy",
+    "wifi": true,
+    "headline_price": "71000.00"
+  },
+  "fees": {
+    "wifi_fee": {
+      "status": "stated",
+      "amount": "250.00"
+    }
+  },
+  "known_total": "71250.00"
+}

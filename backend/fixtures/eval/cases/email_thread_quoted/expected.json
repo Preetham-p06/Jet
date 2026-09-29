@@ -1,0 +1,15 @@
+{
+  "currency": "USD",
+  "intent": "revision",
+  "fields": {
+    "operator_name": "Blue Ridge Charter",
+    "headline_price": "36500.00",
+    "aircraft_model": "Hawker 900XP"
+  },
+  "fees": {
+    "positioning": {
+      "status": "included",
+      "amount": null
+    }
+  }
+}

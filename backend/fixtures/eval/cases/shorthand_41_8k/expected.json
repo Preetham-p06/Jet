@@ -1,0 +1,14 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Eastway Air",
+    "headline_price": "41800.00"
+  },
+  "fees": {
+    "positioning": {
+      "status": "stated",
+      "amount": "1200.00"
+    }
+  }
+}

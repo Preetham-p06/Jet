@@ -1,0 +1,6 @@
+{
+  "description": "Image-only PDF: rules cannot read it (needs manual entry or Claude)",
+  "demo": false,
+  "input": "../../../demo/scanned_quote.pdf",
+  "channel": "pdf_upload"
+}

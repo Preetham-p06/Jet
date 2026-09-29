@@ -1,0 +1,6 @@
+{
+  "description": "EUR amounts with EU digit grouping",
+  "demo": false,
+  "channel": "pdf_upload",
+  "input": "input.pdf"
+}

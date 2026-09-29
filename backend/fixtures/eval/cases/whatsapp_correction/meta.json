@@ -1,0 +1,6 @@
+{
+  "description": "WhatsApp export with a corrected positioning fee",
+  "demo": false,
+  "channel": "whatsapp",
+  "input": "input.txt"
+}

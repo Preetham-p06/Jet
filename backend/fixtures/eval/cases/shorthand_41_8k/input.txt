@@ -1,0 +1,4 @@
+From: Eastway Air <+12015550188>
+Received: 2026-10-02T15:10:00-04:00
+
+JS184: Latitude avail, quote is 41.8k, positioning 1.2k

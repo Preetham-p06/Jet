@@ -1,0 +1,24 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Silverline Jets",
+    "headline_price": "61400.00",
+    "stated_total": "63950.00",
+    "aircraft_model": "Bombardier Challenger 300",
+    "seats": 9,
+    "departure_airport": "KTEB",
+    "arrival_airport": "KPBI"
+  },
+  "fees": {
+    "crew_overnight": {
+      "status": "stated",
+      "amount": "2100.00"
+    },
+    "overnight": {
+      "status": "stated",
+      "amount": "450.00"
+    }
+  },
+  "known_total": "63950.00"
+}

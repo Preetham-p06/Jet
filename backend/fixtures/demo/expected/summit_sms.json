@@ -1,0 +1,17 @@
+{
+  "file": "summit_sms.txt",
+  "intent": "quote",
+  "currency": "USD",
+  "fields": {
+    "operator_name": "Summit Executive Aviation",
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF",
+    "headline_price": "38900.00",
+    "all_in": true
+  },
+  "fees": {
+    "crew_overnight": {"status": "stated", "amount": "700.00", "explicitly_extra": true},
+    "fuel_surcharge": {"status": "estimated", "amount": "850.00", "hedged": true}
+  },
+  "confidence": {"fee.fuel_surcharge": 61, "fee.crew_overnight": 84, "headline_price": 82}
+}

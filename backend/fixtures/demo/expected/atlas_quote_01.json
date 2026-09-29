@@ -1,0 +1,32 @@
+{
+  "file": "atlas_quote_01.pdf",
+  "intent": "quote",
+  "currency": "USD",
+  "fields": {
+    "operator_name": "Atlas Air Charter",
+    "aircraft_model": "Cessna Citation Latitude",
+    "aircraft_category": "midsize",
+    "tail_number": "N684AC",
+    "seats": 8,
+    "wifi": true,
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF",
+    "departure_local": "2026-10-18T09:00",
+    "flight_time_minutes": 178,
+    "pax": 7,
+    "availability": "confirmed",
+    "headline_price": "41800.00",
+    "stated_total": "44820.00",
+    "valid_until": "2026-10-10"
+  },
+  "fees": {
+    "positioning": {"status": "stated", "amount": "1200.00"},
+    "ramp_handling": {"status": "stated", "amount": "420.00"},
+    "fuel_surcharge": {"status": "stated", "amount": "1400.00"},
+    "fet": {"status": "included", "amount": null},
+    "segment_fees": {"status": "included", "amount": null}
+  },
+  "pages": {"fee.positioning": 1, "fee.ramp_handling": 2, "fee.fuel_surcharge": 2},
+  "confidence": {"fee.positioning": 95},
+  "known_total": "44820.00"
+}

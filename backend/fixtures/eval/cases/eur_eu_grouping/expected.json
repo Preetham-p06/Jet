@@ -1,0 +1,21 @@
+{
+  "currency": "EUR",
+  "intent": "quote",
+  "fields": {
+    "currency": "EUR",
+    "headline_price": "32500.00",
+    "stated_total": "32950.00",
+    "aircraft_model": "Cessna Citation XLS+",
+    "aircraft_category": "midsize",
+    "departure_airport": "LSGG",
+    "arrival_airport": "LFMN",
+    "departure_local": "2026-10-18T09:00",
+    "operator_name": "Alpine Executive Jets"
+  },
+  "fees": {
+    "ramp_handling": {
+      "status": "stated",
+      "amount": "450.00"
+    }
+  }
+}

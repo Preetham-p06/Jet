@@ -1,0 +1,9 @@
+{
+  "description": "Demo fixture atlas_email_catering.eml (Atlas Air Charter)",
+  "demo": true,
+  "input": "../../../demo/atlas_email_catering.eml",
+  "expected": "../../../demo/expected/atlas_email_catering.json",
+  "channel": "email",
+  "sender": "Atlas Air Charter <quotes@atlas-air-charter.example>",
+  "subject": "RE: JS184 KTEB-KOPF 18 Oct"
+}

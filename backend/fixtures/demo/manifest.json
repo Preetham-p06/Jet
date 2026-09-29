@@ -1,0 +1,96 @@
+{
+  "trip": {
+    "reference": "JS184",
+    "origin": "KTEB",
+    "destination": "KOPF",
+    "depart_local": "2026-10-18T09:00",
+    "depart_tz": "America/New_York",
+    "pax": 7
+  },
+  "files": [
+    {
+      "file": "atlas_quote_01.pdf",
+      "operator": "Atlas Air Charter",
+      "channel": "pdf_upload",
+      "sender": "Atlas Air Charter <quotes@atlas-air-charter.example>",
+      "subject": "JS184 quote",
+      "received_offset_minutes": 84
+    },
+    {
+      "file": "quote-final-v7.pdf",
+      "operator": "SkyBridge Aviation",
+      "channel": "pdf_upload",
+      "sender": "SkyBridge Aviation <sales@skybridge-aviation.example>",
+      "subject": "Quote JS184",
+      "received_offset_minutes": 126
+    },
+    {
+      "file": "atlas_email_catering.eml",
+      "operator": "Atlas Air Charter",
+      "channel": "email",
+      "sender": "Atlas Air Charter <quotes@atlas-air-charter.example>",
+      "subject": "RE: JS184 KTEB-KOPF 18 Oct",
+      "received_offset_minutes": 180
+    },
+    {
+      "file": "operator_quote_18.pdf",
+      "operator": "Northstar Jets",
+      "channel": "pdf_upload",
+      "sender": "Northstar Jets <charter@northstarjets.example>",
+      "subject": "Northstar quotation JS184",
+      "received_offset_minutes": 216
+    },
+    {
+      "file": "revised-quote.pdf",
+      "operator": "Summit Executive Aviation",
+      "channel": "pdf_upload",
+      "sender": "Summit Executive Aviation <dan@summit-exec.example>",
+      "subject": "Revised quote JS184",
+      "received_offset_minutes": 312
+    },
+    {
+      "file": "summit_sms.txt",
+      "operator": "Summit Executive Aviation",
+      "channel": "sms",
+      "sender": "Summit Executive Aviation <+16175550142>",
+      "subject": null,
+      "received_offset_minutes": 340
+    }
+  ],
+  "rfq": [
+    {
+      "operator": "Atlas Air Charter",
+      "status": "quoted"
+    },
+    {
+      "operator": "SkyBridge Aviation",
+      "status": "quoted"
+    },
+    {
+      "operator": "Northstar Jets",
+      "status": "quoted"
+    },
+    {
+      "operator": "Summit Executive Aviation",
+      "status": "quoted"
+    },
+    {
+      "operator": "Harbor Jet Group",
+      "status": "declined",
+      "responded_offset_minutes": 240
+    },
+    {
+      "operator": "Coastal Wings",
+      "status": "declined",
+      "responded_offset_minutes": 360
+    },
+    {
+      "operator": "Meridian Air",
+      "status": "requested"
+    },
+    {
+      "operator": "Blue Ridge Charter",
+      "status": "requested"
+    }
+  ]
+}

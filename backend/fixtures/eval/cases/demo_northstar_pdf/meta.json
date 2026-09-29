@@ -1,0 +1,9 @@
+{
+  "description": "Demo fixture operator_quote_18.pdf (Northstar Jets)",
+  "demo": true,
+  "input": "../../../demo/operator_quote_18.pdf",
+  "expected": "../../../demo/expected/operator_quote_18.json",
+  "channel": "pdf_upload",
+  "sender": "Northstar Jets <charter@northstarjets.example>",
+  "subject": "Northstar quotation JS184"
+}

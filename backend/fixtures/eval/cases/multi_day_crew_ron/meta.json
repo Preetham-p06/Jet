@@ -1,0 +1,10 @@
+{
+  "description": "Multi-day round trip with crew RON and parking",
+  "demo": false,
+  "channel": "paste",
+  "trip": {
+    "origin": "KTEB",
+    "destination": "KPBI"
+  },
+  "input": "input.txt"
+}
