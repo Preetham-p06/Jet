@@ -319,7 +319,7 @@ def test_public_view_is_a_whitelist(db: Session, env: Env) -> None:
     assert view.prepared_for == "Dana Whitfield"
     assert view.pax == 7 and view.date.isoformat() == "2026-10-18"
     assert view.legs[0].origin_code in {"KTEB", "TEB"}
-    assert view.options[0].aircraft == "Citation Latitude"
+    assert view.options[0].aircraft == "Cessna Citation Latitude"
     assert view.options[0].recommended
     assert view.options[0].client_total_cents == 4_617_900
 
