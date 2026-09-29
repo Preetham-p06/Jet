@@ -1,0 +1,9 @@
+{
+  "description": "Demo fixture revised-quote.pdf (Summit Executive Aviation)",
+  "demo": true,
+  "input": "../../../demo/revised-quote.pdf",
+  "expected": "../../../demo/expected/revised-quote.json",
+  "channel": "pdf_upload",
+  "sender": "Summit Executive Aviation <dan@summit-exec.example>",
+  "subject": "Revised quote JS184"
+}

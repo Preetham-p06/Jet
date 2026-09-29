@@ -1,0 +1,13 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Meridian Air",
+    "headline_price": "39500.00",
+    "all_in": true,
+    "aircraft_model": "Embraer Praetor 500",
+    "wifi": true,
+    "seats": 9
+  },
+  "fees": {}
+}

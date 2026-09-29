@@ -1,0 +1,9 @@
+{
+  "currency": "USD",
+  "intent": "decline",
+  "fields": {
+    "operator_name": "Harbor Jet Group",
+    "availability": "unavailable"
+  },
+  "fees": {}
+}

@@ -1,0 +1,23 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Keystone Air Charter",
+    "headline_price": "38000.00",
+    "stated_total": "40860.60",
+    "aircraft_model": "Hawker 800XP",
+    "tail_number": "N801KC"
+  },
+  "fees": {
+    "fet": {
+      "status": "stated",
+      "amount": "2850.00",
+      "percent": "7.5"
+    },
+    "segment_fees": {
+      "status": "stated",
+      "amount": "10.60"
+    }
+  },
+  "known_total": "40860.60"
+}

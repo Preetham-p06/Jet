@@ -1,0 +1,6 @@
+{
+  "description": "Stated total that does not reconcile with the lines",
+  "demo": false,
+  "channel": "pdf_upload",
+  "input": "input.pdf"
+}

@@ -1,0 +1,6 @@
+{
+  "description": "Model alias (CL-350) and a registration after \"reg\"",
+  "demo": false,
+  "channel": "pdf_upload",
+  "input": "input.pdf"
+}

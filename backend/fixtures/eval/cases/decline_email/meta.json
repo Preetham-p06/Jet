@@ -1,0 +1,6 @@
+{
+  "description": "Decline by email",
+  "demo": false,
+  "channel": "email",
+  "input": "input.eml"
+}

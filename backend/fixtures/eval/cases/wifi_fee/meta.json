@@ -1,0 +1,6 @@
+{
+  "description": "Wi-Fi fee as a separate charge",
+  "demo": false,
+  "channel": "paste",
+  "input": "input.txt"
+}

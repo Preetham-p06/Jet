@@ -1,0 +1,28 @@
+{
+  "file": "operator_quote_18.pdf",
+  "intent": "quote",
+  "currency": "USD",
+  "fields": {
+    "operator_name": "Northstar Jets",
+    "aircraft_model": "Gulfstream G280",
+    "aircraft_category": "super_midsize",
+    "tail_number": "N280NJ",
+    "seats": 9,
+    "wifi": true,
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF",
+    "departure_local": "2026-10-18T10:00",
+    "flight_time_minutes": 165,
+    "availability": "subject_to",
+    "headline_price": "50200.00",
+    "stated_total": "52400.00"
+  },
+  "fees": {
+    "positioning": {"status": "stated", "amount": "1400.00"},
+    "ramp_handling": {"status": "stated", "amount": "800.00"},
+    "catering": {"status": "included", "amount": null},
+    "fet": {"status": "included", "amount": null},
+    "segment_fees": {"status": "included", "amount": null}
+  },
+  "known_total": "52400.00"
+}

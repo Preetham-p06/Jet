@@ -1,0 +1,10 @@
+{
+  "description": "International KTEB-MYNN with customs and APIS",
+  "demo": false,
+  "channel": "paste",
+  "trip": {
+    "origin": "KTEB",
+    "destination": "MYNN"
+  },
+  "input": "input.txt"
+}

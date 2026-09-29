@@ -1,0 +1,6 @@
+{
+  "description": "\"41.8k\" shorthand over SMS",
+  "demo": false,
+  "channel": "sms",
+  "input": "input.txt"
+}

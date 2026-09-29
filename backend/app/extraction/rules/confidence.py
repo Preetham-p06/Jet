@@ -40,8 +40,22 @@ def score(
     far_from_anchor: bool = False,
     conflict: bool = False,
 ) -> int:
-    raise NotImplementedError
+    """Base by line kind, then the adjustments of spec §3.3 step 7, clamped to 5-99."""
+    value = BASE[line_kind]
+    if currency_marker:
+        value += CURRENCY_BONUS
+    if explicit_extra:
+        value += EXTRA_BONUS
+    if hedge:
+        value -= HEDGE_PENALTY
+    if estimate:
+        value -= ESTIMATE_PENALTY
+    if far_from_anchor:
+        value -= FAR_ANCHOR_PENALTY
+    if conflict:
+        value -= CONFLICT_PENALTY
+    return clamp(value)
 
 
 def clamp(value: int) -> int:
-    raise NotImplementedError
+    return max(MIN_CONFIDENCE, min(MAX_CONFIDENCE, value))

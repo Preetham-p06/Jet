@@ -1,0 +1,9 @@
+{
+  "description": "Demo fixture atlas_quote_01.pdf (Atlas Air Charter)",
+  "demo": true,
+  "input": "../../../demo/atlas_quote_01.pdf",
+  "expected": "../../../demo/expected/atlas_quote_01.json",
+  "channel": "pdf_upload",
+  "sender": "Atlas Air Charter <quotes@atlas-air-charter.example>",
+  "subject": "JS184 quote"
+}

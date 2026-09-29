@@ -1,0 +1,6 @@
+{
+  "description": "Hourly pricing only",
+  "demo": false,
+  "channel": "paste",
+  "input": "input.txt"
+}

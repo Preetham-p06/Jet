@@ -1,0 +1,9 @@
+{
+  "description": "Demo fixture quote-final-v7.pdf (SkyBridge Aviation)",
+  "demo": true,
+  "input": "../../../demo/quote-final-v7.pdf",
+  "expected": "../../../demo/expected/quote-final-v7.json",
+  "channel": "pdf_upload",
+  "sender": "SkyBridge Aviation <sales@skybridge-aviation.example>",
+  "subject": "Quote JS184"
+}

@@ -1,0 +1,20 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "hourly_rate": "4950.00",
+    "billable_hours": 3.2,
+    "daily_minimum_hours": 2.0,
+    "aircraft_model": "Cessna Citation CJ3+",
+    "availability": "available",
+    "departure_airport": "KTEB",
+    "arrival_airport": "KBOS",
+    "operator_name": "Granite Air"
+  },
+  "fees": {
+    "taxes": {
+      "status": "not_stated",
+      "amount": null
+    }
+  }
+}

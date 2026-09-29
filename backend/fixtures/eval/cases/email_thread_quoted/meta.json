@@ -1,0 +1,6 @@
+{
+  "description": "Email reply whose quoted text holds an older price",
+  "demo": false,
+  "channel": "email",
+  "input": "input.eml"
+}

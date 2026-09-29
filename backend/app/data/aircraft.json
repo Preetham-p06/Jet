@@ -1,0 +1,513 @@
+{
+  "version": 1,
+  "aircraft": [
+    {
+      "model": "Cessna Citation Mustang",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation Mustang",
+        "C510"
+      ],
+      "category": "very_light",
+      "typical_seats": 4,
+      "wifi_common": false
+    },
+    {
+      "model": "Cessna Citation M2",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation M2"
+      ],
+      "category": "light",
+      "typical_seats": 6,
+      "wifi_common": false
+    },
+    {
+      "model": "Cessna Citation CJ2+",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation CJ2+",
+        "Citation CJ2",
+        "CJ2+",
+        "CJ2"
+      ],
+      "category": "light",
+      "typical_seats": 6,
+      "wifi_common": false
+    },
+    {
+      "model": "Cessna Citation CJ3+",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation CJ3+",
+        "Citation CJ3",
+        "CJ3+",
+        "CJ3"
+      ],
+      "category": "light",
+      "typical_seats": 7,
+      "wifi_common": true
+    },
+    {
+      "model": "Cessna Citation CJ4",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation CJ4",
+        "CJ4"
+      ],
+      "category": "light",
+      "typical_seats": 8,
+      "wifi_common": true
+    },
+    {
+      "model": "Embraer Phenom 100",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Phenom 100",
+        "Phenom 100EV"
+      ],
+      "category": "very_light",
+      "typical_seats": 4,
+      "wifi_common": false
+    },
+    {
+      "model": "Embraer Phenom 300",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Phenom 300",
+        "Phenom 300E"
+      ],
+      "category": "light",
+      "typical_seats": 7,
+      "wifi_common": true
+    },
+    {
+      "model": "HondaJet",
+      "manufacturer": "Honda",
+      "aliases": [
+        "HondaJet",
+        "Honda Jet",
+        "HondaJet Elite"
+      ],
+      "category": "very_light",
+      "typical_seats": 5,
+      "wifi_common": false
+    },
+    {
+      "model": "Learjet 45",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Learjet 45",
+        "Lear 45",
+        "LJ45"
+      ],
+      "category": "light",
+      "typical_seats": 7,
+      "wifi_common": false
+    },
+    {
+      "model": "Learjet 75",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Learjet 75",
+        "Lear 75",
+        "LJ75"
+      ],
+      "category": "light",
+      "typical_seats": 7,
+      "wifi_common": true
+    },
+    {
+      "model": "Nextant 400XT",
+      "manufacturer": "Nextant",
+      "aliases": [
+        "Nextant 400XT",
+        "400XT",
+        "Beechjet 400"
+      ],
+      "category": "light",
+      "typical_seats": 7,
+      "wifi_common": false
+    },
+    {
+      "model": "Pilatus PC-12",
+      "manufacturer": "Pilatus",
+      "aliases": [
+        "Pilatus PC-12",
+        "PC-12",
+        "PC12"
+      ],
+      "category": "turboprop",
+      "typical_seats": 8,
+      "wifi_common": false
+    },
+    {
+      "model": "Beechcraft King Air 350",
+      "manufacturer": "Beechcraft",
+      "aliases": [
+        "King Air 350",
+        "KA350",
+        "King Air"
+      ],
+      "category": "turboprop",
+      "typical_seats": 8,
+      "wifi_common": false
+    },
+    {
+      "model": "Cessna Citation XLS+",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation XLS+",
+        "Citation XLS",
+        "XLS+",
+        "Citation Excel"
+      ],
+      "category": "midsize",
+      "typical_seats": 8,
+      "wifi_common": true
+    },
+    {
+      "model": "Cessna Citation Latitude",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Cessna Citation Latitude",
+        "Citation Latitude",
+        "C680A"
+      ],
+      "category": "midsize",
+      "typical_seats": 8,
+      "wifi_common": true
+    },
+    {
+      "model": "Cessna Citation Sovereign",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation Sovereign",
+        "Citation Sovereign+"
+      ],
+      "category": "midsize",
+      "typical_seats": 8,
+      "wifi_common": true
+    },
+    {
+      "model": "Hawker 800XP",
+      "manufacturer": "Hawker",
+      "aliases": [
+        "Hawker 800XP",
+        "Hawker 800"
+      ],
+      "category": "midsize",
+      "typical_seats": 8,
+      "wifi_common": false
+    },
+    {
+      "model": "Hawker 900XP",
+      "manufacturer": "Hawker",
+      "aliases": [
+        "Hawker 900XP",
+        "Hawker 900"
+      ],
+      "category": "midsize",
+      "typical_seats": 8,
+      "wifi_common": true
+    },
+    {
+      "model": "Learjet 60",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Learjet 60",
+        "Lear 60",
+        "LJ60"
+      ],
+      "category": "midsize",
+      "typical_seats": 7,
+      "wifi_common": false
+    },
+    {
+      "model": "Gulfstream G150",
+      "manufacturer": "Gulfstream",
+      "aliases": [
+        "Gulfstream G150",
+        "G150"
+      ],
+      "category": "midsize",
+      "typical_seats": 8,
+      "wifi_common": false
+    },
+    {
+      "model": "Embraer Praetor 500",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Praetor 500"
+      ],
+      "category": "midsize",
+      "typical_seats": 9,
+      "wifi_common": true
+    },
+    {
+      "model": "Embraer Legacy 450",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Legacy 450"
+      ],
+      "category": "midsize",
+      "typical_seats": 8,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Challenger 300",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Challenger 300",
+        "CL300",
+        "CL-300"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 9,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Challenger 350",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Bombardier Challenger 350",
+        "Challenger 350",
+        "CL350",
+        "CL-350",
+        "Challenger 3500",
+        "CL3500"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 9,
+      "wifi_common": true
+    },
+    {
+      "model": "Gulfstream G280",
+      "manufacturer": "Gulfstream",
+      "aliases": [
+        "Gulfstream G280",
+        "G280"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 9,
+      "wifi_common": true
+    },
+    {
+      "model": "Gulfstream G200",
+      "manufacturer": "Gulfstream",
+      "aliases": [
+        "Gulfstream G200",
+        "G200"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 9,
+      "wifi_common": false
+    },
+    {
+      "model": "Cessna Citation Longitude",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation Longitude"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 9,
+      "wifi_common": true
+    },
+    {
+      "model": "Cessna Citation X",
+      "manufacturer": "Cessna",
+      "aliases": [
+        "Citation X+",
+        "Citation X",
+        "Citation Ten"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 8,
+      "wifi_common": true
+    },
+    {
+      "model": "Embraer Praetor 600",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Praetor 600"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 10,
+      "wifi_common": true
+    },
+    {
+      "model": "Embraer Legacy 500",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Legacy 500"
+      ],
+      "category": "super_midsize",
+      "typical_seats": 9,
+      "wifi_common": true
+    },
+    {
+      "model": "Dassault Falcon 2000",
+      "manufacturer": "Dassault",
+      "aliases": [
+        "Falcon 2000",
+        "Falcon 2000LX",
+        "F2000"
+      ],
+      "category": "heavy",
+      "typical_seats": 10,
+      "wifi_common": true
+    },
+    {
+      "model": "Dassault Falcon 900",
+      "manufacturer": "Dassault",
+      "aliases": [
+        "Falcon 900",
+        "Falcon 900EX",
+        "Falcon 900LX",
+        "F900"
+      ],
+      "category": "heavy",
+      "typical_seats": 12,
+      "wifi_common": true
+    },
+    {
+      "model": "Dassault Falcon 7X",
+      "manufacturer": "Dassault",
+      "aliases": [
+        "Falcon 7X",
+        "Falcon 8X",
+        "F7X"
+      ],
+      "category": "ultra_long_range",
+      "typical_seats": 14,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Challenger 604",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Challenger 604",
+        "CL604",
+        "CL-604"
+      ],
+      "category": "heavy",
+      "typical_seats": 10,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Challenger 605",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Challenger 605",
+        "CL605",
+        "CL-605"
+      ],
+      "category": "heavy",
+      "typical_seats": 11,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Challenger 650",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Challenger 650",
+        "CL650",
+        "CL-650"
+      ],
+      "category": "heavy",
+      "typical_seats": 12,
+      "wifi_common": true
+    },
+    {
+      "model": "Embraer Legacy 600",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Legacy 600"
+      ],
+      "category": "heavy",
+      "typical_seats": 13,
+      "wifi_common": true
+    },
+    {
+      "model": "Embraer Legacy 650",
+      "manufacturer": "Embraer",
+      "aliases": [
+        "Embraer Legacy 650",
+        "Legacy 650",
+        "Legacy 650E"
+      ],
+      "category": "heavy",
+      "typical_seats": 13,
+      "wifi_common": true
+    },
+    {
+      "model": "Gulfstream G450",
+      "manufacturer": "Gulfstream",
+      "aliases": [
+        "Gulfstream G450",
+        "G450",
+        "Gulfstream GIV-SP",
+        "GIV-SP"
+      ],
+      "category": "heavy",
+      "typical_seats": 14,
+      "wifi_common": true
+    },
+    {
+      "model": "Gulfstream G550",
+      "manufacturer": "Gulfstream",
+      "aliases": [
+        "Gulfstream G550",
+        "G550"
+      ],
+      "category": "ultra_long_range",
+      "typical_seats": 16,
+      "wifi_common": true
+    },
+    {
+      "model": "Gulfstream G650",
+      "manufacturer": "Gulfstream",
+      "aliases": [
+        "Gulfstream G650",
+        "G650",
+        "G650ER"
+      ],
+      "category": "ultra_long_range",
+      "typical_seats": 16,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Global 5000",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Global 5000",
+        "Global 5500"
+      ],
+      "category": "ultra_long_range",
+      "typical_seats": 13,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Global 6000",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Global 6000",
+        "Global 6500",
+        "Global Express"
+      ],
+      "category": "ultra_long_range",
+      "typical_seats": 14,
+      "wifi_common": true
+    },
+    {
+      "model": "Bombardier Global 7500",
+      "manufacturer": "Bombardier",
+      "aliases": [
+        "Global 7500"
+      ],
+      "category": "ultra_long_range",
+      "typical_seats": 17,
+      "wifi_common": true
+    }
+  ]
+}

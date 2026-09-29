@@ -1,0 +1,21 @@
+{
+  "currency": "USD",
+  "intent": "quote",
+  "fields": {
+    "operator_name": "Island Hopper Jets",
+    "departure_airport": "KTEB",
+    "arrival_airport": "MYNN",
+    "departure_local": "2026-10-18T09:00",
+    "headline_price": "28750.00",
+    "stated_total": "29900.00",
+    "aircraft_model": "Embraer Phenom 300",
+    "tail_number": "N302HJ"
+  },
+  "fees": {
+    "international": {
+      "status": "stated",
+      "amount": "1150.00"
+    }
+  },
+  "known_total": "29900.00"
+}

@@ -1,0 +1,25 @@
+{
+  "file": "revised-quote.pdf",
+  "intent": "revision",
+  "currency": "USD",
+  "fields": {
+    "operator_name": "Summit Executive Aviation",
+    "aircraft_model": "Embraer Legacy 650",
+    "aircraft_category": "heavy",
+    "tail_number": "N650SX",
+    "seats": 13,
+    "wifi": false,
+    "departure_airport": "KTEB",
+    "arrival_airport": "KOPF",
+    "departure_local": "2026-10-18T09:00",
+    "flight_time_minutes": 185,
+    "availability": "available",
+    "headline_price": "38900.00"
+  },
+  "fees": {
+    "positioning": {"status": "stated", "amount": "1900.00"},
+    "ramp_handling": {"status": "stated", "amount": "480.00"}
+  },
+  "pages": {"fee.positioning": 1, "fee.ramp_handling": 2},
+  "confidence": {"fee.positioning": 95}
+}
