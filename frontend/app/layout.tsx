@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
-import { AmbientBackground } from "@/components/landing/ambient-background";
-import { CursorGlow } from "@/components/landing/cursor-glow";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,7 +22,7 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: TITLE,
+  title: { default: TITLE, template: "%s · JetStream AI" },
   description: DESCRIPTION,
   applicationName: "JetStream AI",
   openGraph: {
@@ -56,8 +54,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <a href="#main" className="skip-link">
             Skip to content
           </a>
-          <AmbientBackground />
-          <CursorGlow />
           {children}
         </Providers>
       </body>

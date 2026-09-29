@@ -1,12 +1,14 @@
 {
-  "name": "test",
+  "name": "jetstream-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "gen:api": "openapi-typescript ../backend/openapi.json -o lib/api/schema.d.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -15,6 +17,7 @@
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
@@ -24,6 +27,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "openapi-typescript": "^7.13.0",
+    "playwright": "1.56.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

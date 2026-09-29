@@ -1,7 +1,14 @@
 import { cn } from "@/lib/utils";
 
 /** Abstract jet-stream trajectory: a rising sweep with fading contrail echoes. */
-export function LogoMark({ className }: { className?: string }) {
+export function LogoMark({
+  className,
+  gradientId = "js-mark-grad",
+}: {
+  className?: string;
+  /** Unique per rendered instance when several marks can coexist (e.g. a hidden sidebar). */
+  gradientId?: string;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,27 +17,27 @@ export function LogoMark({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="js-mark-grad" x1="3" y1="18" x2="21" y2="6" gradientUnits="userSpaceOnUse">
+        <linearGradient id={gradientId} x1="3" y1="18" x2="21" y2="6" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#5B8CFF" />
           <stop offset="1" stopColor="#59D9FF" />
         </linearGradient>
       </defs>
       <path
         d="M3 18C9.5 18 11 7 21 6"
-        stroke="url(#js-mark-grad)"
+        stroke={`url(#${gradientId})`}
         strokeWidth="2.2"
         strokeLinecap="round"
       />
       <path
         d="M3 13.6C6.6 13.6 8 10.6 10.6 9.6"
-        stroke="url(#js-mark-grad)"
+        stroke={`url(#${gradientId})`}
         strokeWidth="1.6"
         strokeLinecap="round"
         opacity="0.5"
       />
       <path
         d="M3 9.2C4.7 9.2 5.7 8.1 7 7.5"
-        stroke="url(#js-mark-grad)"
+        stroke={`url(#${gradientId})`}
         strokeWidth="1.2"
         strokeLinecap="round"
         opacity="0.28"

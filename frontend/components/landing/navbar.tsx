@@ -56,7 +56,7 @@ export function Navbar() {
           </ul>
 
           <div className="hidden items-center gap-1 md:flex">
-            <GlowButton variant="ghost" size="sm" href="#cta">
+            <GlowButton variant="ghost" size="sm" href="/login">
               Log in
             </GlowButton>
             <GlowButton size="sm" href={CONTACT_HREF} icon={<ArrowRight className="h-3.5 w-3.5" />}>
@@ -107,7 +107,7 @@ export function Navbar() {
               ))}
               <li className="mt-1 border-t border-line pt-1">
                 <a
-                  href="#cta"
+                  href="/login"
                   onClick={() => setOpen(false)}
                   className="flex h-12 items-center rounded-xl px-4 text-[15px] text-fg-muted transition-colors hover:bg-white/[0.05] hover:text-fg"
                 >
