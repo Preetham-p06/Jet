@@ -3,3 +3,19 @@
 
 # env files
 .env*
+!.env.example
+
+# Python
+.venv
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Backend runtime data
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/storage/
