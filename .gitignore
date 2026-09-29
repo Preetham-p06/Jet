@@ -19,3 +19,6 @@ backend/*.db
 backend/*.db-shm
 backend/*.db-wal
 backend/storage/
+
+# Claude Code agent worktrees
+.claude/worktrees/
