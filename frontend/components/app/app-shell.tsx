@@ -49,7 +49,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
 
   return (
     <MeProvider me={me}>
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_60%_-10%,#0e1624_0%,#080b10_55%,#05070a_100%)]" />
         <div className="absolute -right-[10%] -top-[25%] h-[60vh] w-[50vw] rounded-full bg-[radial-gradient(circle,rgba(91,140,255,0.10)_0%,rgba(91,140,255,0)_60%)] blur-3xl" />
       </div>
